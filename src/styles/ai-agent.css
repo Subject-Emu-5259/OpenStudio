@@ -2,7 +2,7 @@
   height: 100%;
   box-sizing: border-box;
   display: grid;
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   gap: 14px;
   padding: 16px;
   color: var(--app-text);
@@ -590,4 +590,184 @@
 .ai-agent-conversation-delete:hover {
   color: var(--ai-agent-delete-hover-text);
   background: var(--ai-agent-delete-hover-bg);
+}
+
+.ai-agent-attachments {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-agent-attach-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--app-radius-sm);
+  border: 1px solid var(--app-border);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ai-agent-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 3px 6px;
+  border-radius: var(--app-radius-sm);
+  border: 1px solid var(--app-border);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+}
+
+.ai-agent-attachment-name {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-agent-attachment-meta {
+  color: var(--app-text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.ai-agent-attachment-remove {
+  border: none;
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ai-agent-attachment-notice {
+  flex-basis: 100%;
+  color: var(--app-text-muted);
+  font-size: 11px;
+}
+
+.ai-agent-memory-card {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+  padding: 10px;
+  background: var(--ai-agent-panel-bg);
+  font-size: 12px;
+}
+
+.ai-agent-memory-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ai-agent-memory-empty {
+  color: var(--app-text-muted);
+}
+
+.ai-agent-proposal-row,
+.ai-agent-fact-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-agent-proposal-row span,
+.ai-agent-fact-row span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-agent-proposal-row button,
+.ai-agent-fact-row button,
+.ai-agent-memory-clear {
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: 11px;
+  padding: 2px 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ai-agent-memory-clear {
+  align-self: flex-start;
+}
+
+.ai-agent-notes-label,
+.ai-agent-notes-area {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text);
+  font-size: 12px;
+  padding: 4px 6px;
+}
+
+.ai-agent-notes-area {
+  min-height: 44px;
+  resize: vertical;
+}
+
+/* Streaming plan status ---------------------------------------------------- */
+/* Live card shown while a plan streams in. Slow providers take minutes
+   per plan; the partial text, elapsed time, and op count make the wait
+   legible, and Cancel stops it. */
+
+.ai-agent-stream-status {
+  border: 1px solid var(--app-border-strong);
+  border-radius: var(--app-radius-lg);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+
+.ai-agent-stream-status-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.ai-agent-stream-status-label {
+  font-weight: 600;
+}
+
+.ai-agent-stream-status-meta {
+  opacity: 0.75;
+  font-size: 0.85em;
+}
+
+.ai-agent-stream-status-cancel {
+  margin-left: auto;
+}
+
+.ai-agent-stream-status-text {
+  max-height: 160px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.25);
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
 }

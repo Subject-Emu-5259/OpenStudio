@@ -1,10 +1,14 @@
 import { useState } from "react";
-import type { ChangeEvent, KeyboardEvent } from "react"
+import type { ChangeEvent, ClipboardEvent, DragEvent, KeyboardEvent } from "react"
 import { Bot } from "lucide-react";
+import { AiAgentAttachments } from "./ai-agent/AiAgentAttachments";
 import { AiAgentConversationList } from "./ai-agent/AiAgentConversationList";
+import { AiAgentMemoryPanel } from "./ai-agent/AiAgentMemoryPanel";
 import { AiAgentMessages } from "./ai-agent/AiAgentMessages";
 import { AiAgentPlanPanel } from "./ai-agent/AiAgentPlanPanel";
+import { AiAgentStreamStatus } from "./ai-agent/AiAgentStreamStatus";
 import { useAiAgentController } from "./ai-agent/useAiAgentController";
+import { parsePackDropPayload } from "../ai/aiAttachments";
 import type { AiProviderModel } from "../types/ai"
 
 interface AiAgentSelectProps {
@@ -59,7 +63,10 @@ function AiAgentSelect({ value, options, onChange }: AiAgentSelectProps) {
 
 export function AiAgentWindow() {
   const agent = useAiAgentController();
-
+  // The plan panel is always mounted: hiding it until a plan exists
+  // left the Apply button nowhere to be found — a model that answers
+  // in text only made the whole apply flow invisible. The panel's
+  // empty state explains the flow instead.
   return (
     <section className="ai-agent-shell">
       <div className="ai-agent-hero">
@@ -93,15 +100,41 @@ export function AiAgentWindow() {
             }}
           />
         </label>
+        {agent.hasEndpointField ? (
+          <label>
+            <span>{agent.providerLabel} endpoint</span>
+            <input
+              type="url"
+              value={agent.baseUrl}
+              placeholder={agent.endpointPlaceholder}
+              autoComplete="off"
+              onChange={function (event: ChangeEvent<HTMLInputElement>) {
+                agent.setBaseUrl(event.target.value);
+              }}
+            />
+          </label>
+        ) : null}
         <label>
           <span>Model</span>
-          <AiAgentSelect
-            value={agent.model}
-            options={agent.modelOptions}
-            onChange={function (nextModel) {
-              agent.setModel(nextModel);
-            }}
-          />
+          {agent.modelIsFreeText ? (
+            <input
+              type="text"
+              value={agent.model}
+              placeholder="Model name served by this endpoint"
+              autoComplete="off"
+              onChange={function (event: ChangeEvent<HTMLInputElement>) {
+                agent.setModel(event.target.value);
+              }}
+            />
+          ) : (
+            <AiAgentSelect
+              value={agent.model}
+              options={agent.modelOptions}
+              onChange={function (nextModel) {
+                agent.setModel(nextModel);
+              }}
+            />
+          )}
         </label>
         <label className="ai-agent-remember-key">
           <input
@@ -117,7 +150,7 @@ export function AiAgentWindow() {
           <button
             type="button"
             onClick={agent.testConnection}
-            disabled={agent.isTestingConnection || !agent.apiKey.trim()}
+            disabled={agent.isTestingConnection || !agent.canTestConnection}
           >
             {agent.isTestingConnection ? "Testing..." : "Test connection"}
           </button>
@@ -128,6 +161,19 @@ export function AiAgentWindow() {
           </div>
         ) : null}
       </div>
+
+      <AiAgentMemoryPanel
+        proposals={agent.memoryProposals}
+        onAcceptProposal={agent.acceptMemoryProposal}
+        onDismissProposal={agent.dismissMemoryProposal}
+        profileFacts={agent.producerProfile}
+        onDeleteFact={agent.deleteProfileFact}
+        onClearFacts={agent.clearProfileFacts}
+        projectNotesLabel={agent.projectNotesLabel}
+        onProjectNotesLabelChange={agent.setProjectNotesLabel}
+        projectNotes={agent.projectNotes}
+        onProjectNotesChange={agent.setProjectNotes}
+      />
 
       <div className="ai-agent-layout">
         <AiAgentConversationList
@@ -145,13 +191,55 @@ export function AiAgentWindow() {
 
           {agent.error ? <div className="ai-agent-error">{agent.error}</div> : null}
 
-          <form className="ai-agent-composer" onSubmit={agent.sendMessage}>
+          {agent.isSending && agent.streamingStartedAt !== null ? (
+            <AiAgentStreamStatus
+              streamingText={agent.streamingText}
+              streamingStartedAt={agent.streamingStartedAt}
+              streamingOpCount={agent.streamingOpCount}
+              onCancel={agent.cancelSend}
+            />
+          ) : null}
+
+          <form
+            className="ai-agent-composer"
+            onSubmit={agent.sendMessage}
+            onDragOver={function (event: DragEvent<HTMLFormElement>) {
+              event.preventDefault();
+            }}
+            onDrop={function (event: DragEvent<HTMLFormElement>) {
+              event.preventDefault();
+              if (event.dataTransfer.files.length > 0) {
+                agent.addAttachmentFiles(event.dataTransfer.files);
+                return;
+              }
+              // Packs-area drags carry no files — they carry a sample/MIDI
+              // payload. Fetch it through the normal attachment path.
+              const packDrop = parsePackDropPayload(event.dataTransfer);
+              if (packDrop) {
+                void agent.addAttachmentFromUrl(packDrop);
+              }
+            }}
+          >
+            <AiAgentAttachments
+              attachments={agent.attachments}
+              notices={agent.attachmentNotices}
+              onAddFiles={agent.addAttachmentFiles}
+              onRemove={agent.removeAttachment}
+              disabled={agent.isSending}
+            />
             <textarea
               value={agent.input}
               placeholder="Example: create a dark trap pattern with kick, snare and hats"
               disabled={agent.isSending}
               onChange={function (event: ChangeEvent<HTMLTextAreaElement>) {
                 agent.setInput(event.target.value);
+              }}
+              onPaste={function (event: ClipboardEvent<HTMLTextAreaElement>) {
+                const files = event.clipboardData?.files;
+                if (files && files.length > 0) {
+                  event.preventDefault();
+                  agent.addAttachmentFiles(files);
+                }
               }}
               onKeyDown={function (event: KeyboardEvent<HTMLTextAreaElement>) {
                 if (event.key === "Enter" && !event.shiftKey) {
@@ -162,7 +250,10 @@ export function AiAgentWindow() {
             />
             <button
               type="submit"
-              disabled={agent.isSending || !agent.input.trim()}
+              disabled={
+                agent.isSending
+                || (!agent.input.trim() && agent.attachments.length === 0)
+              }
             >
               {agent.isSending ? "Thinking..." : "Send"}
             </button>
@@ -173,6 +264,7 @@ export function AiAgentWindow() {
           operations={agent.pendingOperations}
           operationResults={agent.operationResults}
           rejectedOperations={agent.rejectedOperations}
+          lastReplyStagedNothing={agent.lastReplyStagedNothing}
           isApplying={agent.isApplying}
           onApply={agent.applyPendingOperations}
           onUndo={agent.undoLastAppliedChange}

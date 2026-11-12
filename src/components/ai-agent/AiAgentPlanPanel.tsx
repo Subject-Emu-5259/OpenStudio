@@ -9,6 +9,7 @@ interface AiAgentPlanPanelProps {
   operations: AiPreparedOperation[]
   operationResults: AiOperationResult[]
   rejectedOperations: AiRejectedOperation[]
+  lastReplyStagedNothing?: boolean
   isApplying: boolean
   onApply: () => void
   onUndo: () => void
@@ -19,6 +20,7 @@ export function AiAgentPlanPanel({
   operations,
   operationResults,
   rejectedOperations,
+  lastReplyStagedNothing,
   isApplying,
   onApply,
   onUndo,
@@ -59,10 +61,18 @@ export function AiAgentPlanPanel({
             );
           })}
         </ol>
+      ) : lastReplyStagedNothing ? (
+        <p>
+          The last reply staged no changes — it was text only. Ask for
+          something specific, like “add a kick pattern at 140 BPM”, and
+          the steps will appear here. If it keeps answering in text,
+          the model in Settings may be too weak for the plan format.
+        </p>
       ) : (
         <p>
-          The agent will never mutate the DAW state directly. It prepares a
-          validated operation list first, then you decide whether to apply it.
+          No plan staged yet. Ask the agent to build something — a beat,
+          a pattern, a mix change — and the steps will appear here.
+          Nothing changes until you press Apply Plan.
         </p>
       )}
 

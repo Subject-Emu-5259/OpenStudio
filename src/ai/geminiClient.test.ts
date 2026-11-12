@@ -70,6 +70,43 @@ describe("geminiClient", function () {
     expect(sentBody.generationConfig.responseMimeType).toBe("application/json");
   });
 
+  it("fires onDelta once with the full text and passes the abort signal", async function () {
+    const planText = JSON.stringify({
+      message: "Plan ready",
+      operations: [{ type: "create_pattern", payload: {} }],
+    });
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      createJsonResponse({
+        candidates: [
+          {
+            content: {
+              parts: [{ text: planText }],
+            },
+          },
+        ],
+      }),
+    );
+    const controller = new AbortController();
+    const onDelta = vi.fn();
+
+    const result = await requestGeminiAgentPlan(
+      {
+        apiKey: "gemini-key",
+        model: "gemini-3.5-flash",
+        userMessage: "create pattern",
+        projectSummary: createProjectSummary({ patterns: [] }),
+      },
+      { onDelta, signal: controller.signal },
+    );
+
+    expect(result.message).toBe("Plan ready");
+    // Gemini is non-streaming: one delta with the whole plan text, so
+    // the controller's streaming interface stays uniform across providers.
+    expect(onDelta).toHaveBeenCalledTimes(1);
+    expect(onDelta).toHaveBeenCalledWith(planText);
+    expect(fetchMock.mock.calls[0]?.[1]?.signal).toBe(controller.signal);
+  });
+
   it("maps conversation history to Gemini roles", async function () {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       createJsonResponse({
@@ -138,5 +175,63 @@ describe("geminiClient", function () {
         projectSummary: createProjectSummary({}),
       }),
     ).rejects.toThrow("Paste your Gemini API key");
+  });
+});
+
+describe("geminiClient attachments and memory payload", function () {
+  afterEach(function () {
+    vi.restoreAllMocks();
+  });
+
+  it("includes attachments, profile, notes, brief, and past projects when provided", async function () {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      createJsonResponse({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    message: "Using your loop.",
+                    operations: [],
+                    memory: ["likes SHOOTER drums"],
+                    brief: "Trap session in C minor.",
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    );
+
+    const result = await requestGeminiAgentPlan({
+      apiKey: "test-key",
+      model: "gemini-3.5-flash",
+      userMessage: "use this loop",
+      projectSummary: createProjectSummary({ patterns: [] }),
+      attachments: [
+        { name: "loop.wav", kind: "audio", samplePath: "blob:test/1" },
+      ],
+      producerProfile: ["likes SHOOTER drums"],
+      projectNotes: "Dark trap, 140 BPM",
+      conversationBrief: "Earlier session.",
+      pastProjects: ["Crown"],
+    });
+
+    expect(result.message).toBe("Using your loop.");
+    expect(result.memory).toEqual(["likes SHOOTER drums"]);
+    expect(result.brief).toBe("Trap session in C minor.");
+
+    const sentBody = getSentBody(fetchMock.mock.calls[0]);
+    const lastContent = sentBody.contents[sentBody.contents.length - 1];
+    const userContent = JSON.parse(lastContent?.parts[0]?.text || "{}");
+    expect(userContent.attachments).toEqual([
+      { name: "loop.wav", kind: "audio", samplePath: "blob:test/1" },
+    ]);
+    expect(userContent.producerProfile).toEqual(["likes SHOOTER drums"]);
+    expect(userContent.projectNotes).toBe("Dark trap, 140 BPM");
+    expect(userContent.conversationBrief).toBe("Earlier session.");
+    expect(userContent.pastProjects).toEqual(["Crown"]);
   });
 });

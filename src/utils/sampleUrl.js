@@ -67,10 +67,22 @@ function normalizeRuntimePackPath(rawInput) {
       return "openstudio://packs/" + encodedRelative
     }
 
+    // Packs can live on R2 instead of the app origin: VITE_PACKS_BASE_URL
+    // points at the bucket's /packs prefix, and is empty for local serving.
+    const packsBaseUrl = String(import.meta.env.VITE_PACKS_BASE_URL || "").replace(/\/+$/, "")
+    if (packsBaseUrl) {
+      return packsBaseUrl + "/" + encodedRelative
+    }
+
     return "/packs/" + encodedRelative
   }
 
   if (!isFileProtocol) {
+    const packsBaseUrl = String(import.meta.env.VITE_PACKS_BASE_URL || "").replace(/\/+$/, "")
+    if (packsBaseUrl && input.startsWith("/packs/")) {
+      return packsBaseUrl + input.slice("/packs".length)
+    }
+
     return input
   }
 

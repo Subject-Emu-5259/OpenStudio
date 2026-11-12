@@ -7,6 +7,7 @@ import { AppTitleBar } from "./components/AppTitleBar";
 import { ChannelRackWindow } from "./components/ChannelRackWindow";
 import { FxPluginWindow } from "./components/FxPluginWindow";
 import { FloatingWindow } from "./components/FloatingWindow";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { MixerWindow } from "./components/MixerWindow";
 import { PatternListWindow } from "./components/PatternListWindow";
 import { PianoRollWindow } from "./components/PianoRollWindow";
@@ -17,6 +18,10 @@ import { TopToolbar } from "./components/TopToolbar";
 import { setPlaying, undoLastChange, toggleWindowMaximize } from "./store";
 import { setUser, clearUser } from "./store/userSlice";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
+import {
+  buildMissingProfileRow,
+  resolveSessionUser,
+} from "./lib/sessionUser";
 import { MIDI_FILE_DND_MIME } from "./utils/midiImport";
 import { MIDI_PATTERN_DND_MIME } from "./utils/midiPattern";
 
@@ -302,17 +307,28 @@ function App() {
           .eq("id", session.user.id)
           .single();
 
-        if (profile) {
-          dispatch(
-            setUser({
-              id: session.user.id,
-              username: profile.username,
-              nickname: profile.nickname,
-              email: profile.email,
-            }),
-          );
+        // The session is the source of truth: a signed-in user without a
+        // profile row is still logged in, with display fields falling back
+        // to the session user instead of silently staying logged out.
+        dispatch(setUser(resolveSessionUser(session, profile)));
+
+        // Best-effort: give a rowless user a profile row so future logins
+        // resolve display fields without depending on this fallback.
+        const missingRow = buildMissingProfileRow(session, profile);
+        if (missingRow) {
+          try {
+            await supabase.from("profiles").upsert(missingRow);
+          } catch (upsertError) {
+            console.warn(
+              "Could not create missing Supabase user profile",
+              upsertError,
+            );
+          }
         }
       } catch (error) {
+        // Last resort: even if the profile lookup itself throws, the
+        // session alone is enough to stay logged in across refreshes.
+        dispatch(setUser(resolveSessionUser(session, null)));
         console.warn("Could not sync Supabase user profile", error);
       }
     };
@@ -339,9 +355,10 @@ function App() {
   };
 
   return (
-    <div
-      className={
-        "app-shell " +
+    <ErrorBoundary>
+      <div
+        className={
+          "app-shell " +
         (activeTheme === "tealslate"
           ? "theme-tealslate"
           : activeTheme === "studio95"
@@ -453,7 +470,8 @@ function App() {
           </FloatingWindow>
         </main>
       </div>
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 }
 

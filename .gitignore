@@ -29,6 +29,13 @@ guidelines.md
 project_documentation.tex
 bundle-stats.json
 public/packs/manifest.json
+# New packs (Nov 2026) are served from R2, not tracked in git: 1.5 GB of
+# WAVs would bloat the repo. Local copies stay in the working tree as
+# the staging source for the R2 upload.
+public/packs/METRO Sample Pack (Producergrind)/
+public/packs/Official Zay 808/
+public/packs/PG - SHOOTER - Macshooter Free Pack/
+public/packs/TRENCH PACK Leaks (Producergrind)/
 .env
 .env.local
 .env.*.local

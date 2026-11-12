@@ -29,6 +29,7 @@
     "@breezystack/lamejs": "^1.2.7",
     "@reduxjs/toolkit": "^2.11.2",
     "@supabase/supabase-js": "^2.104.1",
+    "jszip": "^3.10.2",
     "lucide-react": "^1.7.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",

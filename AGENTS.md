@@ -112,15 +112,23 @@ This is **inconsistent** with the scheduler which applies stretch even when `tim
 
 ## Testing
 
-**There are currently no tests.** This is the project's biggest technical debt.
+Vitest is the test runner (`npm run test:run` for a single run, `npm test`
+for watch mode). The suite covers the AI agent (clients, plan parsing,
+repair, operations, attachments, controller), auth flows, sample URL
+handling, and core audio/store helpers — 499 tests across 52 files as of
+November 2026. Run the full suite plus `npm run lint` and
+`npm run typecheck` before calling a change done.
 
-Priority test targets (pure functions, easy to unit test):
+Priority test targets still thin on coverage (pure functions, easy to unit
+test):
 - `src/audio/domain/timeStretch.js` → `getStretchTargetDurationSeconds`, `getTimeStretchProfile`
 - `src/audio/core/computeSamplePlaybackParams.js`
 - `src/audio/domain/sampleSettings.js` → `getSafeSampleSettings`
 - `src/store/reducers/project.js` → reducers
 
-Suggested setup: Vitest (already using Vite, so zero-config).
+Note: the full suite takes ~2 minutes and is load-sensitive — userEvent-heavy
+tests carry raised timeouts (see `AuthDialog.resend.test.jsx`) rather than
+relying on the 5s default.
 
 ## Build & Lint
 

@@ -35,6 +35,13 @@ function makePacksPath(relativePath: unknown): string {
     );
   }
 
+  // Packs can live on R2 instead of the app origin: VITE_PACKS_BASE_URL
+  // points at the bucket's /packs prefix, and is empty for local serving.
+  const packsBaseUrl = String(import.meta.env.VITE_PACKS_BASE_URL || "").replace(/\/+$/, "");
+  if (packsBaseUrl && cleanRelative.startsWith("packs/")) {
+    return packsBaseUrl + "/" + cleanRelative.slice("packs/".length);
+  }
+
   return "/" + cleanRelative;
 }
 
@@ -98,10 +105,55 @@ export async function loadAiSampleIndex(limit = 240): Promise<AiSample[]> {
       });
     });
 
-    return samples.slice(0, limit);
+    return limitSamplesAcrossFolders(samples, limit);
   } catch {
     return [];
   }
+}
+
+// Caps the index without letting the first folders in manifest order crowd
+// out the rest: takes one sample per folder per round, so every kit stays
+// visible even when the library (1,400+ files) is larger than the limit.
+// A plain first-N slice hid whole packs (the TRENCH pack sat past the cut).
+function limitSamplesAcrossFolders(samples: AiSample[], limit: number): AiSample[] {
+  if (samples.length <= limit) {
+    return samples;
+  }
+
+  const groups: AiSample[][] = [];
+  const groupByFolder = new Map<string, AiSample[]>();
+  samples.forEach(function (sample) {
+    const key = String(sample?.folder || "Packs");
+    let group = groupByFolder.get(key);
+    if (!group) {
+      group = [];
+      groupByFolder.set(key, group);
+    }
+    group.push(sample);
+  });
+  groupByFolder.forEach(function (group) {
+    groups.push(group);
+  });
+
+  const result: AiSample[] = [];
+  let index = 0;
+  while (result.length < limit) {
+    let progressed = false;
+    groups.forEach(function (group) {
+      if (result.length >= limit) {
+        return;
+      }
+      if (index < group.length) {
+        result.push(group[index]);
+        progressed = true;
+      }
+    });
+    if (!progressed) {
+      break;
+    }
+    index++;
+  }
+  return result;
 }
 
 function tokenizeSampleQuery(query: unknown): string[] {

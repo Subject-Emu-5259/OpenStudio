@@ -29,6 +29,7 @@ function createUnavailableSupabaseClient() {
       signInWithPassword: rejectUnavailable,
       signUp: rejectUnavailable,
       signOut: rejectUnavailable,
+      resend: rejectUnavailable,
       onAuthStateChange: function () {
         return {
           data: {

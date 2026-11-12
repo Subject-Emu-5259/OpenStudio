@@ -40,6 +40,13 @@ export function useBrowserPacksManager({ browserTab }) {
         );
       }
 
+      // Packs can live on R2 instead of the app origin: VITE_PACKS_BASE_URL
+      // points at the bucket's /packs prefix, and is empty for local serving.
+      const packsBaseUrl = String(import.meta.env.VITE_PACKS_BASE_URL || "").replace(/\/+$/, "");
+      if (packsBaseUrl && cleanRelative.startsWith("packs/")) {
+        return packsBaseUrl + "/" + cleanRelative.slice("packs/".length);
+      }
+
       return "/" + cleanRelative;
     },
     [isFileProtocol],

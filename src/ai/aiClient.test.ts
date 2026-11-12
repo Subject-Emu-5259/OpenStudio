@@ -22,7 +22,7 @@ vi.mock("./geminiClient", function () {
   };
 });
 
-import { requestAiAgentPlan, testAiConnection } from "./aiClient";
+import { requestAiAgentPlan, testAiConnection, isAbortError } from "./aiClient";
 import {
   requestAiAgentPlan as requestOpenAiAgentPlan,
   testOpenAiConnection,
@@ -74,5 +74,63 @@ describe("aiClient", function () {
 
     expect(testOpenAiConnection).toHaveBeenCalledTimes(1);
     expect(testGeminiConnection).toHaveBeenCalledTimes(1);
+  });
+
+  it("routes OpenRouter plan requests through the OpenAI-compatible path", async function () {
+    await requestAiAgentPlan({
+      provider: "openrouter",
+      apiKey: "sk-or-test",
+      model: "anthropic/claude-sonnet-4",
+      baseUrl: "https://openrouter.ai/api/v1",
+      userMessage: "create pattern",
+      projectSummary: createProjectSummary({}),
+    });
+
+    expect(requestOpenAiAgentPlan).toHaveBeenCalledTimes(1);
+    expect(requestGeminiAgentPlan).not.toHaveBeenCalled();
+  });
+
+  it("forwards stream options to the selected provider", async function () {
+    const streamOptions = {
+      onDelta: vi.fn(),
+      signal: new AbortController().signal,
+    };
+
+    await requestAiAgentPlan(
+      {
+        apiKey: "sk-test",
+        model: "gpt-5.5",
+        userMessage: "create pattern",
+        projectSummary: createProjectSummary({}),
+      },
+      streamOptions,
+    );
+    expect(requestOpenAiAgentPlan).toHaveBeenCalledWith(
+      expect.objectContaining({ userMessage: "create pattern" }),
+      streamOptions,
+    );
+
+    await requestAiAgentPlan(
+      {
+        provider: "gemini",
+        apiKey: "gemini-key",
+        model: "gemini-3.5-flash",
+        userMessage: "create pattern",
+        projectSummary: createProjectSummary({}),
+      },
+      streamOptions,
+    );
+    expect(requestGeminiAgentPlan).toHaveBeenCalledWith(
+      expect.objectContaining({ userMessage: "create pattern" }),
+      streamOptions,
+    );
+  });
+
+  it("detects AbortError by name across error shapes", function () {
+    expect(isAbortError(new DOMException("aborted", "AbortError"))).toBe(true);
+    expect(isAbortError({ name: "AbortError" })).toBe(true);
+    expect(isAbortError(new Error("network down"))).toBe(false);
+    expect(isAbortError(null)).toBe(false);
+    expect(isAbortError(undefined)).toBe(false);
   });
 });

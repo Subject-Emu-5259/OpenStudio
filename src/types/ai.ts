@@ -1,4 +1,4 @@
-export type AiProviderId = "openai" | "gemini"
+export type AiProviderId = "openai" | "gemini" | "openai-compatible" | "openrouter"
 
 export type AiChatRole = "user" | "assistant" | "system"
 
@@ -45,6 +45,14 @@ export interface AiProviderConfig {
   keyStorage: string
   modelStorage: string
   keyPlaceholder: string
+  // Only set for providers with a user-configurable API endpoint
+  // (openai-compatible). An empty models list means the model name is
+  // free text instead of a fixed dropdown.
+  endpointStorage?: string
+  endpointPlaceholder?: string
+  // Preset endpoint used when nothing is stored yet (e.g. OpenRouter's
+  // preset endpoint). The field stays editable; clearing it falls back here.
+  defaultEndpoint?: string
   models: readonly AiProviderModel[]
 }
 
@@ -88,14 +96,52 @@ export interface AiOperationResult {
 export interface AiAgentPlan {
   message: string
   operations: AiRawOperation[]
+  // Optional: durable facts the model proposes for the producer profile.
+  memory?: string[]
+  // Optional: running summary of the conversation, replacing old turns.
+  brief?: string
 }
 
 export interface AiPlanRequest {
   apiKey: string
   model?: string
+  // OpenAI-compatible base URL (e.g. http://localhost:1234/v1). When
+  // omitted, the official OpenAI API is used.
+  baseUrl?: string
   userMessage: string
   projectSummary: AiProjectSummary
   conversationHistory?: AiChatMessage[]
+  // Files the user attached in the agent chat, as serializable descriptors.
+  attachments?: AiAttachmentDescriptor[]
+  // Durable producer-profile facts (preferred kits, tempo lane, style).
+  producerProfile?: string[]
+  // Free-form notes the user keeps for the current project.
+  projectNotes?: string
+  // Running conversation summary; stands in for turns beyond the cap.
+  conversationBrief?: string
+  // Titles of the user's past cloud projects (titles only, never state).
+  pastProjects?: string[]
+}
+
+export type AiAttachmentKind = "audio" | "midi" | "preset"
+
+// Serializable description of one attached file, as sent to the model.
+// Never carries file contents, blobs, or secrets.
+export interface AiAttachmentDescriptor {
+  name: string
+  kind: AiAttachmentKind
+  // Audio only: the blob URL the agent must copy into sample ops.
+  samplePath?: string
+  // Audio only: decoded length in seconds, when decoding succeeded.
+  durationSec?: number
+  // MIDI only: how many notes the file holds.
+  noteCount?: number
+  // Preset only: short summary of the settings.
+  presetSummary?: string
+  // Preset only: sanitized settings (secret keys stripped, size-capped).
+  presetParams?: Record<string, unknown>
+  // ZIP members: the pack file they came from.
+  sourcePack?: string
 }
 
 export interface AiProjectSummary {
@@ -127,4 +173,11 @@ export interface AiConversation extends AiConversationSummary {
   pending_operations: AiPreparedOperation[]
   operation_results: AiOperationResult[]
   rejected_operations: AiRejectedOperation[]
+}
+
+// A model-proposed producer-profile fact awaiting the user's accept or
+// dismiss. Proposals never enter the profile on their own.
+export interface AiMemoryProposal {
+  id: string
+  fact: string
 }
