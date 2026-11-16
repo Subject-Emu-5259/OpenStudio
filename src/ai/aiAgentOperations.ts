@@ -28,9 +28,15 @@ import {
   setChannelSolo,
   setChannelVolume,
   setFxSlotEffectType,
+  setFxSlotChorusParam,
+  setFxSlotTransientParam,
+  setFxSlotCompressorParam,
+  setFxSlotDelayParam,
+  setFxSlotFilterParam,
   setFxSlotGraphicEqBandGain,
   setFxSlotMaximizerParam,
   setFxSlotReverbParam,
+  setFxSlotSaturationParam,
   setInsertFader,
   setInsertPan,
   setInsertStereo,
@@ -197,6 +203,18 @@ function getOperationDescription(operation) {
       return "Set reverb parameter " + (payload.param || "value");
     case "set_fx_maximizer_param":
       return "Set maximizer parameter " + (payload.param || "value");
+    case "set_fx_compressor_param":
+      return "Set compressor parameter " + (payload.param || "value");
+    case "set_fx_saturation_param":
+      return "Set saturation parameter " + (payload.param || "value");
+    case "set_fx_filter_param":
+      return "Set filter parameter " + (payload.param || "value");
+    case "set_fx_delay_param":
+      return "Set delay parameter " + (payload.param || "value");
+    case "set_fx_chorus_param":
+      return "Set chorus parameter " + (payload.param || "value");
+    case "set_fx_transient_param":
+      return "Set transient parameter " + (payload.param || "value");
     case "set_fx_graphic_eq_band_gain":
       return "Set graphic EQ band gain";
     default:
@@ -869,6 +887,66 @@ function applyAiOperation(operation, dispatch, getState) {
 
   if (operation.type === "set_fx_maximizer_param") {
     dispatch(setFxSlotMaximizerParam({
+      insertId: payload.insertId,
+      slotId: payload.slotId || "slot-1",
+      param: payload.param,
+      value: payload.value,
+    }));
+    return true;
+  }
+
+  if (operation.type === "set_fx_compressor_param") {
+    dispatch(setFxSlotCompressorParam({
+      insertId: payload.insertId,
+      slotId: payload.slotId || "slot-1",
+      param: payload.param,
+      value: payload.value,
+    }));
+    return true;
+  }
+
+  if (operation.type === "set_fx_saturation_param") {
+    dispatch(setFxSlotSaturationParam({
+      insertId: payload.insertId,
+      slotId: payload.slotId || "slot-1",
+      param: payload.param,
+      value: payload.value,
+    }));
+    return true;
+  }
+
+  if (operation.type === "set_fx_filter_param") {
+    dispatch(setFxSlotFilterParam({
+      insertId: payload.insertId,
+      slotId: payload.slotId || "slot-1",
+      param: payload.param,
+      value: payload.value,
+    }));
+    return true;
+  }
+
+  if (operation.type === "set_fx_delay_param") {
+    dispatch(setFxSlotDelayParam({
+      insertId: payload.insertId,
+      slotId: payload.slotId || "slot-1",
+      param: payload.param,
+      value: payload.value,
+    }));
+    return true;
+  }
+
+  if (operation.type === "set_fx_chorus_param") {
+    dispatch(setFxSlotChorusParam({
+      insertId: payload.insertId,
+      slotId: payload.slotId || "slot-1",
+      param: payload.param,
+      value: payload.value,
+    }));
+    return true;
+  }
+
+  if (operation.type === "set_fx_transient_param") {
+    dispatch(setFxSlotTransientParam({
       insertId: payload.insertId,
       slotId: payload.slotId || "slot-1",
       param: payload.param,

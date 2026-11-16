@@ -1,8 +1,14 @@
 import {
+  FX_SLOT_EFFECT_CHORUS,
+  FX_SLOT_EFFECT_COMPRESSOR,
+  FX_SLOT_EFFECT_DELAY,
+  FX_SLOT_EFFECT_FILTER,
   FX_SLOT_EFFECT_GRAPHIC_EQ,
   FX_SLOT_EFFECT_MAXIMIZER,
   FX_SLOT_EFFECT_NONE,
   FX_SLOT_EFFECT_REVERB,
+  FX_SLOT_EFFECT_SATURATION,
+  FX_SLOT_EFFECT_TRANSIENT,
   GRAPHIC_EQ_BAND_TYPES,
   GRAPHIC_EQ_DEFAULT_POINT_FREQUENCIES,
   MAXIMIZER_MODES,
@@ -285,6 +291,400 @@ export function getSafeMaximizerParams(raw) {
 }
 
 // ------------------------------------------------------------------
+// Compressor helpers
+// ------------------------------------------------------------------
+
+export function clampCompressorThresholdDb(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return -24;
+  }
+  return Math.max(-60, Math.min(0, value));
+}
+
+export function clampCompressorRatio(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 4;
+  }
+  return Math.max(1, Math.min(20, value));
+}
+
+export function clampCompressorKneeDb(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 6;
+  }
+  return Math.max(0, Math.min(40, value));
+}
+
+export function clampCompressorAttackSec(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 0.01;
+  }
+  return Math.max(0.0005, Math.min(0.5, value));
+}
+
+export function clampCompressorReleaseSec(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 0.18;
+  }
+  return Math.max(0.01, Math.min(1, value));
+}
+
+export function clampCompressorMakeupGainDb(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(24, value));
+}
+
+export function clampCompressorMix(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 1;
+  }
+  return Math.max(0, Math.min(1, value));
+}
+
+export function makeCompressorParams() {
+  return {
+    thresholdDb: -24,
+    ratio: 4,
+    kneeDb: 6,
+    attackSec: 0.01,
+    releaseSec: 0.18,
+    makeupGainDb: 0,
+    mix: 1,
+  };
+}
+
+export function getSafeCompressorParams(raw) {
+  const base = {
+    ...makeCompressorParams(),
+    ...(raw || {}),
+  };
+
+  return {
+    thresholdDb: clampCompressorThresholdDb(base.thresholdDb),
+    ratio: clampCompressorRatio(base.ratio),
+    kneeDb: clampCompressorKneeDb(base.kneeDb),
+    attackSec: clampCompressorAttackSec(base.attackSec),
+    releaseSec: clampCompressorReleaseSec(base.releaseSec),
+    makeupGainDb: clampCompressorMakeupGainDb(base.makeupGainDb),
+    mix: clampCompressorMix(base.mix),
+  };
+}
+
+// ------------------------------------------------------------------
+// Saturation helpers
+// ------------------------------------------------------------------
+
+export function sanitizeSaturationMode(rawMode) {
+  const requested = String(rawMode || "")
+    .trim()
+    .toLowerCase();
+  if (requested === "soft" || requested === "hard") {
+    return requested;
+  }
+  return "soft";
+}
+
+export function clampSaturationDrive(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 0.3;
+  }
+  return Math.max(0, Math.min(1, value));
+}
+
+export function clampSaturationTone(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 0.5;
+  }
+  return Math.max(0, Math.min(1, value));
+}
+
+export function clampSaturationMix(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 1;
+  }
+  return Math.max(0, Math.min(1, value));
+}
+
+export function clampSaturationOutputDb(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(-12, Math.min(12, value));
+}
+
+export function makeSaturationParams() {
+  return {
+    drive: 0.3,
+    mode: "soft",
+    tone: 0.5,
+    mix: 1,
+    outputDb: 0,
+  };
+}
+
+export function getSafeSaturationParams(raw) {
+  const base = {
+    ...makeSaturationParams(),
+    ...(raw || {}),
+  };
+
+  return {
+    drive: clampSaturationDrive(base.drive),
+    mode: sanitizeSaturationMode(base.mode),
+    tone: clampSaturationTone(base.tone),
+    mix: clampSaturationMix(base.mix),
+    outputDb: clampSaturationOutputDb(base.outputDb),
+  };
+}
+
+// ------------------------------------------------------------------
+// Filter helpers
+// ------------------------------------------------------------------
+
+export function sanitizeFilterMode(rawMode) {
+  const requested = String(rawMode || "")
+    .trim()
+    .toLowerCase();
+  if (
+    requested === "lowpass" ||
+    requested === "highpass" ||
+    requested === "bandpass" ||
+    requested === "notch"
+  ) {
+    return requested;
+  }
+  return "lowpass";
+}
+
+export function clampFilterCutoffHz(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 18000;
+  }
+  return Math.max(20, Math.min(20000, value));
+}
+
+export function clampFilterResonance(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 1;
+  }
+  return Math.max(0.5, Math.min(20, value));
+}
+
+export function clampFilterMix(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 1;
+  }
+  return Math.max(0, Math.min(1, value));
+}
+
+export function makeFilterParams() {
+  return {
+    cutoffHz: 18000,
+    resonance: 1,
+    mode: "lowpass",
+    mix: 1,
+  };
+}
+
+export function getSafeFilterParams(raw) {
+  const base = {
+    ...makeFilterParams(),
+    ...(raw || {}),
+  };
+
+  return {
+    cutoffHz: clampFilterCutoffHz(base.cutoffHz),
+    resonance: clampFilterResonance(base.resonance),
+    mode: sanitizeFilterMode(base.mode),
+    mix: clampFilterMix(base.mix),
+  };
+}
+
+// ------------------------------------------------------------------
+// Delay helpers
+// ------------------------------------------------------------------
+
+export function clampDelayTimeMs(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 320;
+  }
+  return Math.max(1, Math.min(2000, value));
+}
+
+export function clampDelayFeedback(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 0.35;
+  }
+  // Hard cap below 1: at 1 the feedback loop would never decay.
+  return Math.max(0, Math.min(0.85, value));
+}
+
+export function clampDelayMix(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 0.25;
+  }
+  return Math.max(0, Math.min(1, value));
+}
+
+export function clampDelayHiCutHz(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 8000;
+  }
+  return Math.max(1200, Math.min(18000, value));
+}
+
+export function makeDelayParams() {
+  return {
+    timeMs: 320,
+    feedback: 0.35,
+    mix: 0.25,
+    hiCutHz: 8000,
+  };
+}
+
+export function getSafeDelayParams(raw) {
+  const base = {
+    ...makeDelayParams(),
+    ...(raw || {}),
+  };
+
+  return {
+    timeMs: clampDelayTimeMs(base.timeMs),
+    feedback: clampDelayFeedback(base.feedback),
+    mix: clampDelayMix(base.mix),
+    hiCutHz: clampDelayHiCutHz(base.hiCutHz),
+  };
+}
+
+// ------------------------------------------------------------------
+// Chorus helpers
+// ------------------------------------------------------------------
+
+export function clampChorusRateHz(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 0.8;
+  }
+  return Math.max(0.1, Math.min(8, value));
+}
+
+export function clampChorusDepth(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 0.4;
+  }
+  return Math.max(0, Math.min(1, value));
+}
+
+export function clampChorusDelayMs(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 15;
+  }
+  return Math.max(5, Math.min(40, value));
+}
+
+export function clampChorusMix(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 0.35;
+  }
+  return Math.max(0, Math.min(1, value));
+}
+
+export function makeChorusParams() {
+  return {
+    rateHz: 0.8,
+    depth: 0.4,
+    delayMs: 15,
+    mix: 0.35,
+  };
+}
+
+export function getSafeChorusParams(raw) {
+  const base = {
+    ...makeChorusParams(),
+    ...(raw || {}),
+  };
+
+  return {
+    rateHz: clampChorusRateHz(base.rateHz),
+    depth: clampChorusDepth(base.depth),
+    delayMs: clampChorusDelayMs(base.delayMs),
+    mix: clampChorusMix(base.mix),
+  };
+}
+
+// ------------------------------------------------------------------
+// Transient shaper helpers
+// ------------------------------------------------------------------
+
+export function clampTransientAttack(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(-1, Math.min(1, value));
+}
+
+export function clampTransientSustain(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(-1, Math.min(1, value));
+}
+
+export function clampTransientMix(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 1;
+  }
+  return Math.max(0, Math.min(1, value));
+}
+
+export function makeTransientParams() {
+  return {
+    attack: 0,
+    sustain: 0,
+    mix: 1,
+  };
+}
+
+export function getSafeTransientParams(raw) {
+  const base = {
+    ...makeTransientParams(),
+    ...(raw || {}),
+  };
+
+  return {
+    attack: clampTransientAttack(base.attack),
+    sustain: clampTransientSustain(base.sustain),
+    mix: clampTransientMix(base.mix),
+  };
+}
+
+// ------------------------------------------------------------------
 // Insert / mixer helpers
 // ------------------------------------------------------------------
 
@@ -324,7 +724,19 @@ export function normalizeFxSlot(slot, index) {
         ? FX_SLOT_EFFECT_REVERB
         : rawEffectType === FX_SLOT_EFFECT_MAXIMIZER
           ? FX_SLOT_EFFECT_MAXIMIZER
-          : FX_SLOT_EFFECT_NONE;
+          : rawEffectType === FX_SLOT_EFFECT_COMPRESSOR
+            ? FX_SLOT_EFFECT_COMPRESSOR
+            : rawEffectType === FX_SLOT_EFFECT_SATURATION
+              ? FX_SLOT_EFFECT_SATURATION
+              : rawEffectType === FX_SLOT_EFFECT_FILTER
+                ? FX_SLOT_EFFECT_FILTER
+                : rawEffectType === FX_SLOT_EFFECT_DELAY
+                  ? FX_SLOT_EFFECT_DELAY
+                  : rawEffectType === FX_SLOT_EFFECT_CHORUS
+                    ? FX_SLOT_EFFECT_CHORUS
+                    : rawEffectType === FX_SLOT_EFFECT_TRANSIENT
+                      ? FX_SLOT_EFFECT_TRANSIENT
+                      : FX_SLOT_EFFECT_NONE;
   const defaultName =
     effectType === FX_SLOT_EFFECT_GRAPHIC_EQ
       ? "Graphic EQ"
@@ -332,7 +744,19 @@ export function normalizeFxSlot(slot, index) {
         ? "Reverb"
         : effectType === FX_SLOT_EFFECT_MAXIMIZER
           ? "Limiter"
-          : getFxSlotDefaultName(index);
+          : effectType === FX_SLOT_EFFECT_COMPRESSOR
+            ? "Compressor"
+            : effectType === FX_SLOT_EFFECT_SATURATION
+              ? "Saturation"
+              : effectType === FX_SLOT_EFFECT_FILTER
+                ? "Filter"
+                : effectType === FX_SLOT_EFFECT_DELAY
+                  ? "Delay"
+                  : effectType === FX_SLOT_EFFECT_CHORUS
+                    ? "Chorus"
+                    : effectType === FX_SLOT_EFFECT_TRANSIENT
+                      ? "Transient Shaper"
+                      : getFxSlotDefaultName(index);
 
   return {
     id: slot?.id || "slot-" + (index + 1),
@@ -347,7 +771,19 @@ export function normalizeFxSlot(slot, index) {
           ? getSafeReverbParams(slot?.params)
           : effectType === FX_SLOT_EFFECT_MAXIMIZER
             ? getSafeMaximizerParams(slot?.params)
-            : null,
+            : effectType === FX_SLOT_EFFECT_COMPRESSOR
+              ? getSafeCompressorParams(slot?.params)
+              : effectType === FX_SLOT_EFFECT_SATURATION
+                ? getSafeSaturationParams(slot?.params)
+                : effectType === FX_SLOT_EFFECT_FILTER
+                  ? getSafeFilterParams(slot?.params)
+                  : effectType === FX_SLOT_EFFECT_DELAY
+                    ? getSafeDelayParams(slot?.params)
+                    : effectType === FX_SLOT_EFFECT_CHORUS
+                      ? getSafeChorusParams(slot?.params)
+                      : effectType === FX_SLOT_EFFECT_TRANSIENT
+                        ? getSafeTransientParams(slot?.params)
+                        : null,
   };
 }
 

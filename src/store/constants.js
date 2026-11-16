@@ -5,6 +5,12 @@ export const FX_SLOT_EFFECT_NONE = "none";
 export const FX_SLOT_EFFECT_GRAPHIC_EQ = "graphic-eq";
 export const FX_SLOT_EFFECT_REVERB = "reverb";
 export const FX_SLOT_EFFECT_MAXIMIZER = "maximizer";
+export const FX_SLOT_EFFECT_COMPRESSOR = "compressor";
+export const FX_SLOT_EFFECT_SATURATION = "saturation";
+export const FX_SLOT_EFFECT_FILTER = "filter";
+export const FX_SLOT_EFFECT_DELAY = "delay";
+export const FX_SLOT_EFFECT_CHORUS = "chorus";
+export const FX_SLOT_EFFECT_TRANSIENT = "transient";
 
 export const SAMPLE_STRETCH_MODES = new Set([
   "none",

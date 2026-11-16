@@ -5,32 +5,71 @@
 // ------------------------------------------------------------------
 
 import {
+  FX_SLOT_EFFECT_CHORUS,
+  FX_SLOT_EFFECT_COMPRESSOR,
+  FX_SLOT_EFFECT_DELAY,
+  FX_SLOT_EFFECT_FILTER,
   FX_SLOT_EFFECT_GRAPHIC_EQ,
   FX_SLOT_EFFECT_MAXIMIZER,
   FX_SLOT_EFFECT_NONE,
   FX_SLOT_EFFECT_REVERB,
+  FX_SLOT_EFFECT_SATURATION,
+  FX_SLOT_EFFECT_TRANSIENT,
   GRAPHIC_EQ_DEFAULT_POINT_FREQUENCIES,
 } from "../constants";
 import {
+  clampChorusDelayMs,
+  clampChorusDepth,
+  clampChorusMix,
+  clampChorusRateHz,
+  clampCompressorAttackSec,
+  clampCompressorKneeDb,
+  clampCompressorMakeupGainDb,
+  clampCompressorMix,
+  clampCompressorRatio,
+  clampCompressorReleaseSec,
+  clampCompressorThresholdDb,
+  clampDelayFeedback,
+  clampDelayHiCutHz,
+  clampDelayMix,
+  clampDelayTimeMs,
   clampEqBandGainDb,
   clampEqFrequencyHz,
   clampEqQ,
+  clampFilterCutoffHz,
+  clampFilterMix,
+  clampFilterResonance,
   clampMaximizerCeilingDb,
   clampMaximizerCharacter,
   clampMaximizerThresholdDb,
   clampReverb01,
   clampReverbInRange,
+  clampSaturationDrive,
+  clampSaturationMix,
+  clampSaturationOutputDb,
+  clampSaturationTone,
+  clampTransientAttack,
+  clampTransientMix,
+  clampTransientSustain,
   ensureInsertFxSlots,
   getFxSlotDefaultName,
+  getSafeChorusParams,
+  getSafeCompressorParams,
+  getSafeDelayParams,
+  getSafeFilterParams,
   getSafeGraphicEqParams,
   getSafeMaximizerParams,
   getSafeReverbParams,
+  getSafeSaturationParams,
+  getSafeTransientParams,
   isObjectLike,
   makeInsertSpectrum,
   makeInsertWaveform,
   makeMaximizerStereoMeter,
   sanitizeEqBandType,
+  sanitizeFilterMode,
   sanitizeMaximizerMode,
+  sanitizeSaturationMode,
 } from "../utils";
 
 export const mixerReducers = {
@@ -64,6 +103,7 @@ export const mixerReducers = {
       maximizerReduction: 0,
       maximizerOutputDb: -96,
       maximizerStereoMeter: makeMaximizerStereoMeter(),
+      compressorReduction: 0,
       routesTo: ["master"],
       fxSlots: [
         // Create 10 empty slots inline so we don't need to import makeFxSlots here.
@@ -188,6 +228,48 @@ export const mixerReducers = {
       slot.effectType = FX_SLOT_EFFECT_MAXIMIZER;
       slot.name = "Limiter";
       slot.params = getSafeMaximizerParams(slot.params);
+      return;
+    }
+
+    if (requestedType === FX_SLOT_EFFECT_COMPRESSOR) {
+      slot.effectType = FX_SLOT_EFFECT_COMPRESSOR;
+      slot.name = "Compressor";
+      slot.params = getSafeCompressorParams(slot.params);
+      return;
+    }
+
+    if (requestedType === FX_SLOT_EFFECT_SATURATION) {
+      slot.effectType = FX_SLOT_EFFECT_SATURATION;
+      slot.name = "Saturation";
+      slot.params = getSafeSaturationParams(slot.params);
+      return;
+    }
+
+    if (requestedType === FX_SLOT_EFFECT_FILTER) {
+      slot.effectType = FX_SLOT_EFFECT_FILTER;
+      slot.name = "Filter";
+      slot.params = getSafeFilterParams(slot.params);
+      return;
+    }
+
+    if (requestedType === FX_SLOT_EFFECT_DELAY) {
+      slot.effectType = FX_SLOT_EFFECT_DELAY;
+      slot.name = "Delay";
+      slot.params = getSafeDelayParams(slot.params);
+      return;
+    }
+
+    if (requestedType === FX_SLOT_EFFECT_CHORUS) {
+      slot.effectType = FX_SLOT_EFFECT_CHORUS;
+      slot.name = "Chorus";
+      slot.params = getSafeChorusParams(slot.params);
+      return;
+    }
+
+    if (requestedType === FX_SLOT_EFFECT_TRANSIENT) {
+      slot.effectType = FX_SLOT_EFFECT_TRANSIENT;
+      slot.name = "Transient Shaper";
+      slot.params = getSafeTransientParams(slot.params);
       return;
     }
 
@@ -405,6 +487,273 @@ export const mixerReducers = {
     }
   },
 
+  setFxSlotCompressorParam(state, action) {
+    const insert = state.mixer.inserts.find(function (item) {
+      return item.id === action.payload.insertId;
+    });
+    if (!insert) {
+      return;
+    }
+
+    ensureInsertFxSlots(insert);
+
+    const slot = insert.fxSlots.find(function (item) {
+      return item.id === action.payload.slotId;
+    });
+    if (!slot || slot.effectType !== FX_SLOT_EFFECT_COMPRESSOR) {
+      return;
+    }
+
+    slot.params = getSafeCompressorParams(slot.params);
+
+    const param = String(action.payload.param || "").trim();
+    const value = action.payload.value;
+
+    if (param === "thresholdDb") {
+      slot.params.thresholdDb = clampCompressorThresholdDb(value);
+      return;
+    }
+
+    if (param === "ratio") {
+      slot.params.ratio = clampCompressorRatio(value);
+      return;
+    }
+
+    if (param === "kneeDb") {
+      slot.params.kneeDb = clampCompressorKneeDb(value);
+      return;
+    }
+
+    if (param === "attackSec") {
+      slot.params.attackSec = clampCompressorAttackSec(value);
+      return;
+    }
+
+    if (param === "releaseSec") {
+      slot.params.releaseSec = clampCompressorReleaseSec(value);
+      return;
+    }
+
+    if (param === "makeupGainDb") {
+      slot.params.makeupGainDb = clampCompressorMakeupGainDb(value);
+      return;
+    }
+
+    if (param === "mix") {
+      slot.params.mix = clampCompressorMix(value);
+    }
+  },
+
+  setFxSlotSaturationParam(state, action) {
+    const insert = state.mixer.inserts.find(function (item) {
+      return item.id === action.payload.insertId;
+    });
+    if (!insert) {
+      return;
+    }
+
+    ensureInsertFxSlots(insert);
+
+    const slot = insert.fxSlots.find(function (item) {
+      return item.id === action.payload.slotId;
+    });
+    if (!slot || slot.effectType !== FX_SLOT_EFFECT_SATURATION) {
+      return;
+    }
+
+    slot.params = getSafeSaturationParams(slot.params);
+
+    const param = String(action.payload.param || "").trim();
+    const value = action.payload.value;
+
+    if (param === "mode") {
+      slot.params.mode = sanitizeSaturationMode(value);
+      return;
+    }
+
+    if (param === "drive") {
+      slot.params.drive = clampSaturationDrive(value);
+      return;
+    }
+
+    if (param === "tone") {
+      slot.params.tone = clampSaturationTone(value);
+      return;
+    }
+
+    if (param === "outputDb") {
+      slot.params.outputDb = clampSaturationOutputDb(value);
+      return;
+    }
+
+    if (param === "mix") {
+      slot.params.mix = clampSaturationMix(value);
+    }
+  },
+
+  setFxSlotFilterParam(state, action) {
+    const insert = state.mixer.inserts.find(function (item) {
+      return item.id === action.payload.insertId;
+    });
+    if (!insert) {
+      return;
+    }
+
+    ensureInsertFxSlots(insert);
+
+    const slot = insert.fxSlots.find(function (item) {
+      return item.id === action.payload.slotId;
+    });
+    if (!slot || slot.effectType !== FX_SLOT_EFFECT_FILTER) {
+      return;
+    }
+
+    slot.params = getSafeFilterParams(slot.params);
+
+    const param = String(action.payload.param || "").trim();
+    const value = action.payload.value;
+
+    if (param === "mode") {
+      slot.params.mode = sanitizeFilterMode(value);
+      return;
+    }
+
+    if (param === "cutoffHz") {
+      slot.params.cutoffHz = clampFilterCutoffHz(value);
+      return;
+    }
+
+    if (param === "resonance") {
+      slot.params.resonance = clampFilterResonance(value);
+      return;
+    }
+
+    if (param === "mix") {
+      slot.params.mix = clampFilterMix(value);
+    }
+  },
+
+  setFxSlotDelayParam(state, action) {
+    const insert = state.mixer.inserts.find(function (item) {
+      return item.id === action.payload.insertId;
+    });
+    if (!insert) {
+      return;
+    }
+
+    ensureInsertFxSlots(insert);
+
+    const slot = insert.fxSlots.find(function (item) {
+      return item.id === action.payload.slotId;
+    });
+    if (!slot || slot.effectType !== FX_SLOT_EFFECT_DELAY) {
+      return;
+    }
+
+    slot.params = getSafeDelayParams(slot.params);
+
+    const param = String(action.payload.param || "").trim();
+    const value = action.payload.value;
+
+    if (param === "timeMs") {
+      slot.params.timeMs = clampDelayTimeMs(value);
+      return;
+    }
+
+    if (param === "feedback") {
+      slot.params.feedback = clampDelayFeedback(value);
+      return;
+    }
+
+    if (param === "hiCutHz") {
+      slot.params.hiCutHz = clampDelayHiCutHz(value);
+      return;
+    }
+
+    if (param === "mix") {
+      slot.params.mix = clampDelayMix(value);
+    }
+  },
+
+  setFxSlotChorusParam(state, action) {
+    const insert = state.mixer.inserts.find(function (item) {
+      return item.id === action.payload.insertId;
+    });
+    if (!insert) {
+      return;
+    }
+
+    ensureInsertFxSlots(insert);
+
+    const slot = insert.fxSlots.find(function (item) {
+      return item.id === action.payload.slotId;
+    });
+    if (!slot || slot.effectType !== FX_SLOT_EFFECT_CHORUS) {
+      return;
+    }
+
+    slot.params = getSafeChorusParams(slot.params);
+
+    const param = String(action.payload.param || "").trim();
+    const value = action.payload.value;
+
+    if (param === "rateHz") {
+      slot.params.rateHz = clampChorusRateHz(value);
+      return;
+    }
+
+    if (param === "depth") {
+      slot.params.depth = clampChorusDepth(value);
+      return;
+    }
+
+    if (param === "delayMs") {
+      slot.params.delayMs = clampChorusDelayMs(value);
+      return;
+    }
+
+    if (param === "mix") {
+      slot.params.mix = clampChorusMix(value);
+    }
+  },
+
+  setFxSlotTransientParam(state, action) {
+    const insert = state.mixer.inserts.find(function (item) {
+      return item.id === action.payload.insertId;
+    });
+    if (!insert) {
+      return;
+    }
+
+    ensureInsertFxSlots(insert);
+
+    const slot = insert.fxSlots.find(function (item) {
+      return item.id === action.payload.slotId;
+    });
+    if (!slot || slot.effectType !== FX_SLOT_EFFECT_TRANSIENT) {
+      return;
+    }
+
+    slot.params = getSafeTransientParams(slot.params);
+
+    const param = String(action.payload.param || "").trim();
+    const value = action.payload.value;
+
+    if (param === "attack") {
+      slot.params.attack = clampTransientAttack(value);
+      return;
+    }
+
+    if (param === "sustain") {
+      slot.params.sustain = clampTransientSustain(value);
+      return;
+    }
+
+    if (param === "mix") {
+      slot.params.mix = clampTransientMix(value);
+    }
+  },
+
   setInsertMeter(state, action) {
     const insert = state.mixer.inserts.find(function (item) {
       return item.id === action.payload.insertId;
@@ -449,6 +798,13 @@ export const mixerReducers = {
       insert.maximizerReduction = Math.max(0, Math.min(36, numericReduction));
     } else if (!Number.isFinite(Number(insert.maximizerReduction))) {
       insert.maximizerReduction = 0;
+    }
+
+    if (Object.hasOwn(action.payload, "compressorReduction")) {
+      const numericReduction = Number(action.payload.compressorReduction || 0);
+      insert.compressorReduction = Math.max(0, Math.min(36, numericReduction));
+    } else if (!Number.isFinite(Number(insert.compressorReduction))) {
+      insert.compressorReduction = 0;
     }
 
     if (Object.hasOwn(action.payload, "maximizerOutputDb")) {

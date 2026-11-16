@@ -261,6 +261,12 @@ export const {
   setFxSlotGraphicEqPoint,
   setFxSlotReverbParam,
   setFxSlotMaximizerParam,
+  setFxSlotCompressorParam,
+  setFxSlotSaturationParam,
+  setFxSlotFilterParam,
+  setFxSlotDelayParam,
+  setFxSlotChorusParam,
+  setFxSlotTransientParam,
   setInsertMeter,
 } = dawSlice.actions;
 

@@ -2,6 +2,12 @@
 export const FX_EFFECT_GRAPHIC_EQ = "graphic-eq";
 export const FX_EFFECT_REVERB = "reverb";
 export const FX_EFFECT_MAXIMIZER = "maximizer";
+export const FX_EFFECT_COMPRESSOR = "compressor";
+export const FX_EFFECT_SATURATION = "saturation";
+export const FX_EFFECT_FILTER = "filter";
+export const FX_EFFECT_DELAY = "delay";
+export const FX_EFFECT_CHORUS = "chorus";
+export const FX_EFFECT_TRANSIENT = "transient";
 export const FX_EFFECT_NONE = "none";
 
 // Restricts drag/drop + power toggle flows to effects with editor support.
@@ -9,7 +15,13 @@ export function isSupportedEffectType(effectType) {
   return (
     effectType === FX_EFFECT_GRAPHIC_EQ ||
     effectType === FX_EFFECT_REVERB ||
-    effectType === FX_EFFECT_MAXIMIZER
+    effectType === FX_EFFECT_MAXIMIZER ||
+    effectType === FX_EFFECT_COMPRESSOR ||
+    effectType === FX_EFFECT_SATURATION ||
+    effectType === FX_EFFECT_FILTER ||
+    effectType === FX_EFFECT_DELAY ||
+    effectType === FX_EFFECT_CHORUS ||
+    effectType === FX_EFFECT_TRANSIENT
   );
 }
 
@@ -23,6 +35,24 @@ export function getFxSlotName(slot, fallbackIndex) {
   }
   if (slot?.effectType === FX_EFFECT_MAXIMIZER) {
     return "Limiter";
+  }
+  if (slot?.effectType === FX_EFFECT_COMPRESSOR) {
+    return "Compressor";
+  }
+  if (slot?.effectType === FX_EFFECT_SATURATION) {
+    return "Saturation";
+  }
+  if (slot?.effectType === FX_EFFECT_FILTER) {
+    return "Filter";
+  }
+  if (slot?.effectType === FX_EFFECT_DELAY) {
+    return "Delay";
+  }
+  if (slot?.effectType === FX_EFFECT_CHORUS) {
+    return "Chorus";
+  }
+  if (slot?.effectType === FX_EFFECT_TRANSIENT) {
+    return "Transient Shaper";
   }
   return String(slot?.name || "").trim() || "Slot " + (fallbackIndex + 1);
 }

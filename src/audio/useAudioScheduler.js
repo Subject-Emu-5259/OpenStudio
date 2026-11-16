@@ -12,12 +12,24 @@ import {
 } from "./core/usePluginInstruments";
 import { useTransportScheduler } from "./core/useTransportScheduler";
 import {
+  FX_EFFECT_CHORUS,
+  FX_EFFECT_COMPRESSOR,
+  FX_EFFECT_DELAY,
+  FX_EFFECT_FILTER,
   FX_EFFECT_GRAPHIC_EQ,
   FX_EFFECT_MAXIMIZER,
   FX_EFFECT_REVERB,
+  FX_EFFECT_SATURATION,
+  FX_EFFECT_TRANSIENT,
+  getSafeChorusParams,
+  getSafeCompressorParams,
+  getSafeDelayParams,
+  getSafeFilterParams,
   getSafeGraphicEqParams,
   getSafeMaximizerParams,
   getSafeReverbParams,
+  getSafeSaturationParams,
+  getSafeTransientParams,
 } from "./domain/fxParams";
 import { getPluginInstrument } from "../data/pluginInstruments";
 import { toSafeSampleUrl } from "../utils/sampleUrl";
@@ -68,7 +80,19 @@ export function useAudioScheduler() {
                     ? getSafeReverbParams(slot.params)
                     : effectType === FX_EFFECT_MAXIMIZER
                       ? getSafeMaximizerParams(slot.params)
-                      : null,
+                      : effectType === FX_EFFECT_COMPRESSOR
+                        ? getSafeCompressorParams(slot.params)
+                        : effectType === FX_EFFECT_SATURATION
+                          ? getSafeSaturationParams(slot.params)
+                          : effectType === FX_EFFECT_FILTER
+                            ? getSafeFilterParams(slot.params)
+                            : effectType === FX_EFFECT_DELAY
+                              ? getSafeDelayParams(slot.params)
+                              : effectType === FX_EFFECT_CHORUS
+                                ? getSafeChorusParams(slot.params)
+                                : effectType === FX_EFFECT_TRANSIENT
+                                  ? getSafeTransientParams(slot.params)
+                                  : null,
             };
           },
         ),
@@ -135,6 +159,7 @@ export function useAudioScheduler() {
     lastMaximizerReductionRef,
     lastMaximizerOutputDbRef,
     lastMaximizerStereoMeterRef,
+    lastCompressorReductionRef,
   } = useMixerMeters(
     dispatch,
     mixerGraphRef,
@@ -312,6 +337,7 @@ export function useAudioScheduler() {
     lastMaximizerReductionRef,
     lastMaximizerOutputDbRef,
     lastMaximizerStereoMeterRef,
+    lastCompressorReductionRef,
     channelsRef,
     activePatternRef,
     patternsRef,

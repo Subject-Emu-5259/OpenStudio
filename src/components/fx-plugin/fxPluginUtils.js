@@ -1,7 +1,13 @@
 import {
+  FX_EFFECT_CHORUS,
+  FX_EFFECT_COMPRESSOR,
+  FX_EFFECT_DELAY,
+  FX_EFFECT_FILTER,
   FX_EFFECT_GRAPHIC_EQ,
   FX_EFFECT_MAXIMIZER,
   FX_EFFECT_REVERB,
+  FX_EFFECT_SATURATION,
+  FX_EFFECT_TRANSIENT,
 } from "../../audio/domain/fxParams";
 
 // We accept only these effect payloads when dropping from Browser -> Mixer slot.
@@ -9,7 +15,13 @@ export function isSupportedEffectType(effectType) {
   return (
     effectType === FX_EFFECT_GRAPHIC_EQ ||
     effectType === FX_EFFECT_REVERB ||
-    effectType === FX_EFFECT_MAXIMIZER
+    effectType === FX_EFFECT_MAXIMIZER ||
+    effectType === FX_EFFECT_COMPRESSOR ||
+    effectType === FX_EFFECT_SATURATION ||
+    effectType === FX_EFFECT_FILTER ||
+    effectType === FX_EFFECT_DELAY ||
+    effectType === FX_EFFECT_CHORUS ||
+    effectType === FX_EFFECT_TRANSIENT
   );
 }
 

@@ -5,8 +5,17 @@ function getErrorMessage(error) {
 }
 
 /**
- * Last-resort UI protection for unexpected React and browser-level failures.
+ * Last-resort UI protection for unexpected React render failures.
  * It prevents a blank screen and gives the user a safe reload path.
+ *
+ * Deliberately React-only: this boundary does NOT listen to window
+ * "error" or "unhandledrejection" events. Async failures — a sample
+ * fetch 404ing, a decode failing, a rejected promise somewhere in the
+ * audio engine — are not a broken UI, and blanking the whole workspace
+ * for one of them is worse than the failure itself. Those failures are
+ * handled where they occur (loaders resolve to null, callers check).
+ * An earlier version listened globally and turned every failed sample
+ * load after an AI plan apply into a full-app crash screen.
  */
 export class ErrorBoundary extends Component {
   constructor(props) {
@@ -26,39 +35,18 @@ export class ErrorBoundary extends Component {
     }
   }
 
-  componentDidMount() {
-    window.addEventListener("error", this.handleWindowError)
-    window.addEventListener("unhandledrejection", this.handleUnhandledRejection)
-  }
-
   componentDidCatch(error, errorInfo) {
     this.setState({ errorInfo })
     console.error("OpenStudio recovered from a React error", error, errorInfo)
   }
 
-  componentWillUnmount() {
-    window.removeEventListener("error", this.handleWindowError)
-    window.removeEventListener("unhandledrejection", this.handleUnhandledRejection)
-  }
-
-  handleWindowError = (event) => {
-    this.setState({
-      hasError: true,
-      error: event.error || event.message || "Unexpected browser error",
-      errorInfo: null,
-    })
-  }
-
-  handleUnhandledRejection = (event) => {
-    this.setState({
-      hasError: true,
-      error: event.reason || "Unhandled promise rejection",
-      errorInfo: null,
-    })
-  }
-
   handleReloadClick = () => {
-    window.location.reload()
+    // Bust the cache on purpose: Wasmer pins Cache-Control: max-age=86400
+    // on the HTML shell, so a plain reload re-serves the cached build —
+    // including the build that just crashed. A unique query string makes
+    // the browser fetch the shell fresh, which pulls the newest bundle.
+    const base = window.location.href.split("?")[0].split("#")[0]
+    window.location.href = base + "?fresh=" + Date.now()
   }
 
   handleToggleDetails = () => {

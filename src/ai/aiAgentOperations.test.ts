@@ -605,6 +605,261 @@ describe("applyAiOperations", function () {
   });
 });
 
+describe("applyAiOperations compressor op", function () {
+  it("dispatches set_fx_compressor_param with the slot and value", function () {
+    const dawState = createDawState();
+    const dispatched: DispatchedAction[] = [];
+    const dispatch = function (action: DispatchedAction) {
+      dispatched.push(action);
+    };
+    const getState = function () {
+      return { daw: dawState };
+    };
+
+    // Hand-built operation: prepareAiOperations rejects types not yet in
+    // AI_AGENT_OPERATION_TYPES (parent-owned prompt file), so the dispatch
+    // path is tested directly until the type is registered there.
+    const { results } = applyAiOperations(
+      [
+        {
+          type: "set_fx_compressor_param",
+          payload: {
+            insertId: "insert-1",
+            slotId: "slot-1",
+            param: "thresholdDb",
+            value: -18,
+          },
+        },
+      ],
+      { dispatch, getState },
+    );
+
+    expect(results[0].status).toBe("applied");
+    expect(dispatched).toHaveLength(3);
+    expect(dispatched[0].type).toBe("daw/beginAiOperationBatch");
+    expect(dispatched[1]).toMatchObject({
+      type: "daw/setFxSlotCompressorParam",
+      payload: {
+        insertId: "insert-1",
+        slotId: "slot-1",
+        param: "thresholdDb",
+        value: -18,
+      },
+    });
+    expect(dispatched[2].type).toBe("daw/endAiOperationBatch");
+  });
+});
+
+describe("applyAiOperations saturation and filter ops", function () {
+  // Hand-built operations: prepareAiOperations rejects types not yet in
+  // AI_AGENT_OPERATION_TYPES (parent-owned prompt file), so the dispatch
+  // path is tested directly until the types are registered there.
+  it("dispatches set_fx_saturation_param with the slot and value", function () {
+    const dawState = createDawState();
+    const dispatched: DispatchedAction[] = [];
+    const dispatch = function (action: DispatchedAction) {
+      dispatched.push(action);
+    };
+    const getState = function () {
+      return { daw: dawState };
+    };
+
+    const { results } = applyAiOperations(
+      [
+        {
+          type: "set_fx_saturation_param",
+          payload: {
+            insertId: "insert-1",
+            slotId: "slot-1",
+            param: "drive",
+            value: 0.6,
+          },
+        },
+      ],
+      { dispatch, getState },
+    );
+
+    expect(results[0].status).toBe("applied");
+    expect(dispatched).toHaveLength(3);
+    expect(dispatched[0].type).toBe("daw/beginAiOperationBatch");
+    expect(dispatched[1]).toMatchObject({
+      type: "daw/setFxSlotSaturationParam",
+      payload: {
+        insertId: "insert-1",
+        slotId: "slot-1",
+        param: "drive",
+        value: 0.6,
+      },
+    });
+    expect(dispatched[2].type).toBe("daw/endAiOperationBatch");
+  });
+
+  it("dispatches set_fx_filter_param with the slot and value", function () {
+    const dawState = createDawState();
+    const dispatched: DispatchedAction[] = [];
+    const dispatch = function (action: DispatchedAction) {
+      dispatched.push(action);
+    };
+    const getState = function () {
+      return { daw: dawState };
+    };
+
+    const { results } = applyAiOperations(
+      [
+        {
+          type: "set_fx_filter_param",
+          payload: {
+            insertId: "insert-1",
+            slotId: "slot-1",
+            param: "cutoffHz",
+            value: 800,
+          },
+        },
+      ],
+      { dispatch, getState },
+    );
+
+    expect(results[0].status).toBe("applied");
+    expect(dispatched).toHaveLength(3);
+    expect(dispatched[0].type).toBe("daw/beginAiOperationBatch");
+    expect(dispatched[1]).toMatchObject({
+      type: "daw/setFxSlotFilterParam",
+      payload: {
+        insertId: "insert-1",
+        slotId: "slot-1",
+        param: "cutoffHz",
+        value: 800,
+      },
+    });
+    expect(dispatched[2].type).toBe("daw/endAiOperationBatch");
+  });
+});
+
+describe("applyAiOperations delay and chorus ops", function () {
+  // Hand-built operations: prepareAiOperations rejects types not yet in
+  // AI_AGENT_OPERATION_TYPES (parent-owned prompt file), so the dispatch
+  // path is tested directly until the types are registered there.
+  it("dispatches set_fx_delay_param with the slot and value", function () {
+    const dawState = createDawState();
+    const dispatched: DispatchedAction[] = [];
+    const dispatch = function (action: DispatchedAction) {
+      dispatched.push(action);
+    };
+    const getState = function () {
+      return { daw: dawState };
+    };
+
+    const { results } = applyAiOperations(
+      [
+        {
+          type: "set_fx_delay_param",
+          payload: {
+            insertId: "insert-1",
+            slotId: "slot-1",
+            param: "timeMs",
+            value: 480,
+          },
+        },
+      ],
+      { dispatch, getState },
+    );
+
+    expect(results[0].status).toBe("applied");
+    expect(dispatched).toHaveLength(3);
+    expect(dispatched[0].type).toBe("daw/beginAiOperationBatch");
+    expect(dispatched[1]).toMatchObject({
+      type: "daw/setFxSlotDelayParam",
+      payload: {
+        insertId: "insert-1",
+        slotId: "slot-1",
+        param: "timeMs",
+        value: 480,
+      },
+    });
+    expect(dispatched[2].type).toBe("daw/endAiOperationBatch");
+  });
+
+  it("dispatches set_fx_chorus_param with the slot and value", function () {
+    const dawState = createDawState();
+    const dispatched: DispatchedAction[] = [];
+    const dispatch = function (action: DispatchedAction) {
+      dispatched.push(action);
+    };
+    const getState = function () {
+      return { daw: dawState };
+    };
+
+    const { results } = applyAiOperations(
+      [
+        {
+          type: "set_fx_chorus_param",
+          payload: {
+            insertId: "insert-1",
+            slotId: "slot-1",
+            param: "rateHz",
+            value: 1.5,
+          },
+        },
+      ],
+      { dispatch, getState },
+    );
+
+    expect(results[0].status).toBe("applied");
+    expect(dispatched).toHaveLength(3);
+    expect(dispatched[0].type).toBe("daw/beginAiOperationBatch");
+    expect(dispatched[1]).toMatchObject({
+      type: "daw/setFxSlotChorusParam",
+      payload: {
+        insertId: "insert-1",
+        slotId: "slot-1",
+        param: "rateHz",
+        value: 1.5,
+      },
+    });
+    expect(dispatched[2].type).toBe("daw/endAiOperationBatch");
+  });
+
+  it("dispatches set_fx_transient_param with the slot and value", function () {
+    const dawState = createDawState();
+    const dispatched: DispatchedAction[] = [];
+    const dispatch = function (action: DispatchedAction) {
+      dispatched.push(action);
+    };
+    const getState = function () {
+      return { daw: dawState };
+    };
+
+    const { results } = applyAiOperations(
+      [
+        {
+          type: "set_fx_transient_param",
+          payload: {
+            insertId: "insert-1",
+            slotId: "slot-1",
+            param: "attack",
+            value: 0.6,
+          },
+        },
+      ],
+      { dispatch, getState },
+    );
+
+    expect(results[0].status).toBe("applied");
+    expect(dispatched).toHaveLength(3);
+    expect(dispatched[0].type).toBe("daw/beginAiOperationBatch");
+    expect(dispatched[1]).toMatchObject({
+      type: "daw/setFxSlotTransientParam",
+      payload: {
+        insertId: "insert-1",
+        slotId: "slot-1",
+        param: "attack",
+        value: 0.6,
+      },
+    });
+    expect(dispatched[2].type).toBe("daw/endAiOperationBatch");
+  });
+});
+
 describe("applyAiOperations with $new channel reference", function () {
   it("resolves $new to the channel just created by add_channel", function () {
     const dawState = createDawState();

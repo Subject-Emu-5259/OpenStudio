@@ -1,9 +1,15 @@
 import { useMemo } from "react";
 import { useSelector } from "react-redux";
 import {
+  getSafeChorusParams,
+  getSafeCompressorParams,
+  getSafeDelayParams,
+  getSafeFilterParams,
   getSafeGraphicEqParams,
   getSafeMaximizerParams,
   getSafeReverbParams,
+  getSafeSaturationParams,
+  getSafeTransientParams,
 } from "../../audio/domain/fxParams";
 
 // Resolves current editor target (insert/slot) and sanitized params.
@@ -58,6 +64,42 @@ export function useFxEditorSelection() {
     },
     [activeSlot?.params],
   );
+  const compressorParams = useMemo(
+    function () {
+      return getSafeCompressorParams(activeSlot?.params);
+    },
+    [activeSlot?.params],
+  );
+  const saturationParams = useMemo(
+    function () {
+      return getSafeSaturationParams(activeSlot?.params);
+    },
+    [activeSlot?.params],
+  );
+  const filterParams = useMemo(
+    function () {
+      return getSafeFilterParams(activeSlot?.params);
+    },
+    [activeSlot?.params],
+  );
+  const delayParams = useMemo(
+    function () {
+      return getSafeDelayParams(activeSlot?.params);
+    },
+    [activeSlot?.params],
+  );
+  const chorusParams = useMemo(
+    function () {
+      return getSafeChorusParams(activeSlot?.params);
+    },
+    [activeSlot?.params],
+  );
+  const transientParams = useMemo(
+    function () {
+      return getSafeTransientParams(activeSlot?.params);
+    },
+    [activeSlot?.params],
+  );
 
   return {
     activeInsert,
@@ -67,5 +109,11 @@ export function useFxEditorSelection() {
     eqParams,
     reverbParams,
     maximizerParams,
+    compressorParams,
+    saturationParams,
+    filterParams,
+    delayParams,
+    chorusParams,
+    transientParams,
   };
 }

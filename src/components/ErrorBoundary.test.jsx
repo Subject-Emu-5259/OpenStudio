@@ -9,13 +9,11 @@ function BrokenComponent() {
 
 describe("ErrorBoundary", () => {
   let consoleErrorSpy
-  let reloadSpy
 
   beforeEach(() => {
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(function () {})
-    reloadSpy = vi.fn()
     Object.defineProperty(window, "location", {
-      value: { reload: reloadSpy },
+      value: { href: "https://openstudio.wasmer.app/" },
       writable: true,
       configurable: true,
     })
@@ -49,7 +47,7 @@ describe("ErrorBoundary", () => {
     expect(screen.getByText(/broken component/i)).toBeInTheDocument()
   })
 
-  it("offers a reload action", async () => {
+  it("offers a reload action that busts the cached shell", async () => {
     render(
       <ErrorBoundary>
         <BrokenComponent />
@@ -57,6 +55,26 @@ describe("ErrorBoundary", () => {
     )
 
     await userEvent.click(screen.getByRole("button", { name: /reload app/i }))
-    expect(reloadSpy).toHaveBeenCalledOnce()
+    // A plain reload would re-serve the cached build that just crashed —
+    // Reload must navigate to a fresh URL instead.
+    expect(window.location.href).toMatch(/^https:\/\/openstudio\.wasmer\.app\/\?fresh=\d+$/)
+  })
+
+  it("does not trip on window errors or unhandled rejections", () => {
+    // Regression: an earlier version listened globally, so a failed
+    // sample load after an AI plan apply blanked the whole workspace.
+    // Async failures are not a broken UI — the boundary stays React-only.
+    render(
+      <ErrorBoundary>
+        <p>DAW workspace</p>
+      </ErrorBoundary>,
+    )
+
+    window.dispatchEvent(new Event("error"))
+    const rejectionEvent = new Event("unhandledrejection")
+    window.dispatchEvent(rejectionEvent)
+
+    expect(screen.getByText("DAW workspace")).toBeInTheDocument()
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
   })
 })

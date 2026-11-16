@@ -129,6 +129,7 @@ export function useMixerMeters(
   const lastMaximizerReductionRef = useRef(new Map());
   const lastMaximizerOutputDbRef = useRef(new Map());
   const lastMaximizerStereoMeterRef = useRef(new Map());
+  const lastCompressorReductionRef = useRef(new Map());
   const maximizerTraceHistoryRef = useRef(new Map());
   const lastMaximizerVisualKeyRef = useRef(new Map());
 
@@ -144,6 +145,7 @@ export function useMixerMeters(
     lastMaximizerReductionRef.current.clear();
     lastMaximizerOutputDbRef.current.clear();
     lastMaximizerStereoMeterRef.current.clear();
+    lastCompressorReductionRef.current.clear();
     maximizerTraceHistoryRef.current.clear();
     lastMaximizerVisualKeyRef.current.clear();
   }
@@ -209,6 +211,8 @@ export function useMixerMeters(
       let reductionChanged = false;
       let outputDbChanged = false;
       let stereoChanged = false;
+      let compressorReduction = 0;
+      let compressorReductionChanged = false;
 
       if (
         node.maximizerCompressor &&
@@ -216,6 +220,19 @@ export function useMixerMeters(
       ) {
         maximizerReduction = clamp(
           Math.max(0, -Number(node.maximizerCompressor.reduction)),
+          0,
+          36,
+        );
+      }
+
+      // Compressor gain reduction is read-only on the node (reduction is
+      // negative dB); the editor shows it as a positive GR meter.
+      if (
+        node.compressor &&
+        Number.isFinite(Number(node.compressor.reduction))
+      ) {
+        compressorReduction = clamp(
+          Math.max(0, -Number(node.compressor.reduction)),
           0,
           36,
         );
@@ -533,6 +550,11 @@ export function useMixerMeters(
       reductionChanged =
         prevReduction === undefined ||
         Math.abs((prevReduction || 0) - maximizerReduction) > 0.14;
+      const prevCompressorReduction =
+        lastCompressorReductionRef.current.get(insertId);
+      compressorReductionChanged =
+        prevCompressorReduction === undefined ||
+        Math.abs((prevCompressorReduction || 0) - compressorReduction) > 0.14;
       const prevOutputDb = lastMaximizerOutputDbRef.current.get(insertId);
       outputDbChanged =
         prevOutputDb === undefined ||
@@ -567,6 +589,7 @@ export function useMixerMeters(
         spectrumChanged ||
         waveformChanged ||
         reductionChanged ||
+        compressorReductionChanged ||
         outputDbChanged ||
         stereoChanged
       ) {
@@ -583,6 +606,7 @@ export function useMixerMeters(
           insertId,
           maximizerStereoMeter,
         );
+        lastCompressorReductionRef.current.set(insertId, compressorReduction);
 
         dispatch(
           setInsertMeter({
@@ -595,6 +619,7 @@ export function useMixerMeters(
             maximizerReduction,
             maximizerOutputDb,
             maximizerStereoMeter,
+            compressorReduction,
           }),
         );
       }
@@ -610,5 +635,6 @@ export function useMixerMeters(
     lastMaximizerReductionRef,
     lastMaximizerOutputDbRef,
     lastMaximizerStereoMeterRef,
+    lastCompressorReductionRef,
   };
 }

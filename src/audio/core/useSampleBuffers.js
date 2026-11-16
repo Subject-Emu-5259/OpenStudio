@@ -47,14 +47,24 @@ export function useSampleBuffers(ensureContext) {
         return decodedBuffer;
       })();
 
-      sampleLoadPromiseRef.current.set(sampleUrl, request);
-
-      request.catch(function () {
+      // This promise must never reject: every call site fires it with
+      // `void` (preload effect, transport scheduler), and a rejected
+      // promise with no handler is an unhandled rejection — which the
+      // app-wide ErrorBoundary used to turn into a full-workspace crash
+      // screen. A failed load (404, bad decode) is not a broken UI:
+      // record it in sampleLoadFailedRef and resolve to null, which
+      // every caller already handles. Note the .catch must wrap the
+      // promise we RETURN (and store for dedup): catching `request`
+      // alone leaves the async wrapper's adopted rejection unhandled.
+      const safeRequest = request.catch(function () {
         sampleLoadFailedRef.current.add(sampleUrl);
         sampleLoadPromiseRef.current.delete(sampleUrl);
+        return null;
       });
 
-      return request;
+      sampleLoadPromiseRef.current.set(sampleUrl, safeRequest);
+
+      return safeRequest;
     },
     [ensureContext],
   );

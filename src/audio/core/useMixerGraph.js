@@ -3,7 +3,9 @@ import {
   createMixerInsertNodes,
   startMixerInsertModulators as startMixerInsertModulatorsForGraph,
   stopMixerInsertModulators,
+  upgradeTransientWorkletNodes,
 } from "./createMixerInsertNodes";
+import { ensureTransientShaperWorklet } from "./transientShaperWorklet";
 import { applyInsertSettings } from "./applyInsertSettings";
 
 /**
@@ -146,6 +148,75 @@ export function areMixerSettingsEqual(prev, next) {
           return false;
         }
       }
+
+      if (aSlot.effectType === "compressor") {
+        if (
+          aParams.thresholdDb !== bParams.thresholdDb ||
+          aParams.ratio !== bParams.ratio ||
+          aParams.kneeDb !== bParams.kneeDb ||
+          aParams.attackSec !== bParams.attackSec ||
+          aParams.releaseSec !== bParams.releaseSec ||
+          aParams.makeupGainDb !== bParams.makeupGainDb ||
+          aParams.mix !== bParams.mix
+        ) {
+          return false;
+        }
+      }
+
+      if (aSlot.effectType === "saturation") {
+        if (
+          aParams.drive !== bParams.drive ||
+          aParams.mode !== bParams.mode ||
+          aParams.tone !== bParams.tone ||
+          aParams.mix !== bParams.mix ||
+          aParams.outputDb !== bParams.outputDb
+        ) {
+          return false;
+        }
+      }
+
+      if (aSlot.effectType === "filter") {
+        if (
+          aParams.cutoffHz !== bParams.cutoffHz ||
+          aParams.resonance !== bParams.resonance ||
+          aParams.mode !== bParams.mode ||
+          aParams.mix !== bParams.mix
+        ) {
+          return false;
+        }
+      }
+
+      if (aSlot.effectType === "delay") {
+        if (
+          aParams.timeMs !== bParams.timeMs ||
+          aParams.feedback !== bParams.feedback ||
+          aParams.mix !== bParams.mix ||
+          aParams.hiCutHz !== bParams.hiCutHz
+        ) {
+          return false;
+        }
+      }
+
+      if (aSlot.effectType === "chorus") {
+        if (
+          aParams.rateHz !== bParams.rateHz ||
+          aParams.depth !== bParams.depth ||
+          aParams.delayMs !== bParams.delayMs ||
+          aParams.mix !== bParams.mix
+        ) {
+          return false;
+        }
+      }
+
+      if (aSlot.effectType === "transient") {
+        if (
+          aParams.attack !== bParams.attack ||
+          aParams.sustain !== bParams.sustain ||
+          aParams.mix !== bParams.mix
+        ) {
+          return false;
+        }
+      }
     }
   }
 
@@ -165,6 +236,51 @@ export function useMixerGraph(ensureContext) {
   const mixerGraphRef = useRef(null);
   const mixerSettingsRef = useRef([]);
 
+  // Upgrades unity-gain transient fallbacks to real worklet nodes once
+  // the module registers. Scheduled at most once per graph object: a
+  // rebuild creates a new graph (and re-schedules), while a failed load
+  // never retries against the same graph.
+  const scheduleTransientWorkletUpgrade = useCallback(function (graph, audioCtx) {
+    if (!graph || !audioCtx || graph.transientUpgradeScheduled) {
+      return;
+    }
+
+    const needsUpgrade = Array.from(graph.inserts.values()).some(
+      function (node) {
+        return node && !node.transientWorkletReady;
+      },
+    );
+    if (!needsUpgrade) {
+      return;
+    }
+
+    graph.transientUpgradeScheduled = true;
+    ensureTransientShaperWorklet(audioCtx).then(function (ready) {
+      if (!ready) {
+        return;
+      }
+      // Only touch the graph if it is still the live one — a rebuild
+      // since scheduling means the new graph has its own handler.
+      if (mixerGraphRef.current !== graph) {
+        return;
+      }
+      const upgraded = upgradeTransientWorkletNodes(graph.inserts, audioCtx);
+      if (upgraded <= 0) {
+        return;
+      }
+      // New worklet nodes start at parameter defaults; re-apply the
+      // current settings so they pick up their attack/sustain values.
+      const now = audioCtx.currentTime;
+      mixerSettingsRef.current.forEach(function (insert) {
+        const node = graph.inserts.get(insert.id);
+        if (!node) {
+          return;
+        }
+        applyInsertSettings(node, insert, now, { useSmoothing: true });
+      });
+    });
+  }, []);
+
   const ensureMixerGraph = useCallback(
     function () {
       const audioCtx = ensureContext();
@@ -175,7 +291,9 @@ export function useMixerGraph(ensureContext) {
         mixerGraphRef.current &&
         mixerGraphRef.current.signature === signature
       ) {
-        return mixerGraphRef.current;
+        const cachedGraph = mixerGraphRef.current;
+        scheduleTransientWorkletUpgrade(cachedGraph, audioCtx);
+        return cachedGraph;
       }
 
       // Tear down the old graph so we don't leak nodes.
@@ -198,6 +316,30 @@ export function useMixerGraph(ensureContext) {
               safeDisconnect(band);
             });
           }
+          safeDisconnect(node.compressorInput);
+          safeDisconnect(node.compressor);
+          safeDisconnect(node.compressorMakeupGain);
+          safeDisconnect(node.compressorDryGain);
+          safeDisconnect(node.compressorWetGain);
+          safeDisconnect(node.compressorOutput);
+          safeDisconnect(node.saturationInput);
+          safeDisconnect(node.saturationDryGain);
+          safeDisconnect(node.saturationDrive);
+          safeDisconnect(node.saturationShaper);
+          safeDisconnect(node.saturationTone);
+          safeDisconnect(node.saturationOutputGain);
+          safeDisconnect(node.saturationWetGain);
+          safeDisconnect(node.saturationOutput);
+          safeDisconnect(node.filterInput);
+          safeDisconnect(node.filterDryGain);
+          safeDisconnect(node.filterBiquad);
+          safeDisconnect(node.filterWetGain);
+          safeDisconnect(node.filterOutput);
+          safeDisconnect(node.transientInput);
+          safeDisconnect(node.transientDryGain);
+          safeDisconnect(node.transientNode);
+          safeDisconnect(node.transientWetGain);
+          safeDisconnect(node.transientOutput);
           safeDisconnect(node.reverbInput);
           safeDisconnect(node.reverbPreDelay);
           safeDisconnect(node.reverbLoCut);
@@ -222,14 +364,30 @@ export function useMixerGraph(ensureContext) {
               safeDisconnect(tap.gain);
             });
           }
+          // Stop both LFO families before disconnecting them; the stop
+          // helper covers reverb and chorus modulators in one pass.
+          stopMixerInsertModulators(node);
           if (Array.isArray(node.reverbModulators)) {
-            stopMixerInsertModulators(node);
             node.reverbModulators.forEach(function (mod) {
               safeDisconnect(mod.lfo);
               safeDisconnect(mod.depth);
             });
           }
+          if (Array.isArray(node.chorusModulators)) {
+            node.chorusModulators.forEach(function (mod) {
+              safeDisconnect(mod.lfo);
+              safeDisconnect(mod.depth);
+            });
+          }
           safeDisconnect(node.reverbWetGain);
+          safeDisconnect(node.delayInput);
+          safeDisconnect(node.delayNode);
+          safeDisconnect(node.delayDamping);
+          safeDisconnect(node.delayFeedback);
+          safeDisconnect(node.delayWetGain);
+          safeDisconnect(node.chorusInput);
+          safeDisconnect(node.chorusDelay);
+          safeDisconnect(node.chorusWetGain);
           safeDisconnect(node.maximizerInput);
           safeDisconnect(node.maximizerPreGain);
           safeDisconnect(node.maximizerPreAnalyser);
@@ -292,9 +450,11 @@ export function useMixerGraph(ensureContext) {
         inserts,
       };
 
+      scheduleTransientWorkletUpgrade(mixerGraphRef.current, audioCtx);
+
       return mixerGraphRef.current;
     },
-    [ensureContext],
+    [ensureContext, scheduleTransientWorkletUpgrade],
   );
 
   const applyMixerSettingsToGraph = useCallback(

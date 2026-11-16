@@ -1,9 +1,14 @@
 import { getActiveFxState } from "./getActiveFxState";
 import {
+  buildSaturationCurve,
   buildSoftClipCurve,
+  getChorusDepthSec,
   getDefaultEqBandType,
+  getSaturationDriveGain,
+  getSaturationToneHz,
   GRAPHIC_EQ_DEFAULT_POINT_FREQUENCIES,
   sanitizeEqBandType,
+  sanitizeFilterMode,
   sanitizeMaximizerMode,
 } from "../domain/fxParams";
 import { clamp } from "../../store/utils";
@@ -11,8 +16,25 @@ import { clamp } from "../../store/utils";
 const MAX_DYNAMICS_COMPRESSOR_RATIO = 20;
 
 /**
- * Applies all mixer-insert parameters (pan, stereo width, EQ, reverb,
- * maximizer) to a previously created insert node graph.
+ * Applies all mixer-insert parameters (pan, stereo width, EQ, compressor,
+ * saturation, filter, transient, reverb, delay, chorus, maximizer) to a
+ * previously created insert node graph.
+ *
+ * The insert chain is SERIAL (panner -> EQ -> compressor -> saturation ->
+ * filter -> transient -> maximizer), so stages that are off go neutral instead of gating
+ * the chain: a zero gain anywhere in series would silence the whole insert.
+ * The dry gain carries the chain output and the wet gain carries the send
+ * returns (reverb, delay, chorus); when reverb runs alone its dryWet acts
+ * as a balance, and when insert effects are also on it acts as the reverb
+ * send level instead. Delay and chorus are pure additions — their mix sets
+ * the send level and they never reduce the dry signal.
+ *
+ * The transient stage is an AudioWorkletNode whose attack/sustain are
+ * AudioParams; when the worklet module has not loaded yet for this
+ * context the stage runs a unity-gain fallback node (no parameters map)
+ * and the mix still blends dry/wet — the fallback passes signal
+ * unchanged, so the stage is a transparent bypass until the upgrade
+ * path swaps the real node in.
  *
  * This single implementation is shared between the real-time scheduler and the
  * offline exporter.  The only behavioural difference is how parameter changes
@@ -72,10 +94,28 @@ export function applyInsertSettings(
   const eqEnabled = activeFx.eqEnabled;
   const reverbEnabled = activeFx.reverbEnabled;
   const maximizerEnabled = activeFx.maximizerEnabled;
+  const compressorEnabled = activeFx.compressorEnabled;
+  const saturationEnabled = activeFx.saturationEnabled;
+  const filterEnabled = activeFx.filterEnabled;
+  const delayEnabled = activeFx.delayEnabled;
+  const chorusEnabled = activeFx.chorusEnabled;
+  const transientEnabled = activeFx.transientEnabled;
   const eqParams = activeFx.eqParams;
   const reverbParams = activeFx.reverbParams;
   const maximizerParams = activeFx.maximizerParams;
-  const hasInsertFx = eqEnabled || maximizerEnabled;
+  const compressorParams = activeFx.compressorParams;
+  const saturationParams = activeFx.saturationParams;
+  const filterParams = activeFx.filterParams;
+  const delayParams = activeFx.delayParams;
+  const chorusParams = activeFx.chorusParams;
+  const transientParams = activeFx.transientParams;
+  const hasInsertFx =
+    eqEnabled ||
+    compressorEnabled ||
+    saturationEnabled ||
+    filterEnabled ||
+    transientEnabled ||
+    maximizerEnabled;
 
   // ---- stereo width matrix ------------------------------------------------
   const width = 1 - targetSeparation;
@@ -89,16 +129,24 @@ export function applyInsertSettings(
   node.panner.pan.setValueAtTime(targetPan, atTime);
 
   // ---- dry/wet routing ----------------------------------------------------
-  const dryMix = hasInsertFx
-    ? 0
-    : reverbEnabled
+  // The dry gain carries the serial chain output and the wet gain carries
+  // the send returns (reverb, delay, chorus). With insert effects on, the
+  // chain always passes at full level and the sends are additions (their
+  // levels set by dryWet / mix below); with reverb alone, dryWet balances
+  // chain against reverb instead. Delay and chorus never touch the dry
+  // signal — they only open the shared wet bus.
+  const dryMix =
+    reverbEnabled && !hasInsertFx
       ? clamp(1 - reverbParams.dryWet, 0, 1)
       : 1;
-  const wetMix = hasInsertFx || reverbEnabled ? 1 : 0;
+  const wetMix = reverbEnabled || delayEnabled || chorusEnabled ? 1 : 0;
 
   smoothTo(node.fxDryGain.gain, dryMix, atTime);
   smoothTo(node.fxWetGain.gain, wetMix, atTime);
-  smoothTo(node.eqInput.gain, eqEnabled ? 1 : 0, atTime);
+  // The chain entry always passes: in a serial chain a zero gain here
+  // would silence every downstream stage.  A disabled EQ goes flat
+  // (0 dB bands) instead of gating.
+  smoothTo(node.eqInput.gain, 1, atTime);
   node.eqLowCut.frequency.setValueAtTime(20, atTime);
   node.eqLowCut.Q.setValueAtTime(0.707, atTime);
 
@@ -120,6 +168,124 @@ export function applyInsertSettings(
       smoothTo(bandNode.gain, eqEnabled ? point.gainDb : 0, atTime);
     });
   }
+
+  // ---- compressor parameters ----------------------------------------------
+  // A disabled compressor goes fully dry (mix 0) and neutral (1:1 ratio,
+  // 0 dB threshold) so the chain passes untouched and the GR meter reads
+  // zero.  Makeup gain only lifts the wet path — the dry path bypasses it.
+  const compThresholdDb = compressorEnabled
+    ? clamp(compressorParams.thresholdDb, -60, 0)
+    : 0;
+  const compRatio = compressorEnabled
+    ? clamp(compressorParams.ratio, 1, 20)
+    : 1;
+  const compKneeDb = compressorEnabled
+    ? clamp(compressorParams.kneeDb, 0, 40)
+    : 0;
+  const compAttackSec = clamp(compressorParams.attackSec, 0.0005, 0.5);
+  const compReleaseSec = clamp(compressorParams.releaseSec, 0.01, 1);
+  const compMakeupDb = compressorEnabled
+    ? clamp(compressorParams.makeupGainDb, 0, 24)
+    : 0;
+  const compMix = compressorEnabled
+    ? clamp(compressorParams.mix, 0, 1)
+    : 0;
+
+  smoothTo(node.compressorInput.gain, 1, atTime);
+  node.compressor.threshold.setValueAtTime(compThresholdDb, atTime);
+  node.compressor.ratio.setValueAtTime(compRatio, atTime);
+  node.compressor.knee.setValueAtTime(compKneeDb, atTime);
+  node.compressor.attack.setValueAtTime(compAttackSec, atTime);
+  node.compressor.release.setValueAtTime(compReleaseSec, atTime);
+  smoothTo(
+    node.compressorMakeupGain.gain,
+    Math.pow(10, compMakeupDb / 20),
+    atTime,
+  );
+  smoothTo(node.compressorDryGain.gain, 1 - compMix, atTime);
+  smoothTo(node.compressorWetGain.gain, compMix, atTime);
+
+  // ---- saturation parameters ----------------------------------------------
+  // A disabled saturation goes fully dry (mix 0) with unity drive, a null
+  // shaper curve (a WaveShaper with no curve passes signal unchanged), a
+  // wide-open tone filter and unity output, so the chain passes untouched.
+  const satDriveGain = saturationEnabled
+    ? getSaturationDriveGain(saturationParams.drive)
+    : 1;
+  const satToneHz = saturationEnabled
+    ? getSaturationToneHz(saturationParams.tone)
+    : 18000;
+  const satOutputDb = saturationEnabled
+    ? clamp(saturationParams.outputDb, -12, 12)
+    : 0;
+  const satMix = saturationEnabled
+    ? clamp(saturationParams.mix, 0, 1)
+    : 0;
+
+  smoothTo(node.saturationInput.gain, 1, atTime);
+  smoothTo(node.saturationDrive.gain, satDriveGain, atTime);
+  node.saturationShaper.curve = saturationEnabled
+    ? buildSaturationCurve(saturationParams.mode)
+    : null;
+  // 4x oversampling keeps the harmonics the shaper adds from folding back
+  // as aliasing, the same as the maximizer's soft-clip path.
+  node.saturationShaper.oversample = "4x";
+  node.saturationTone.type = "lowpass";
+  node.saturationTone.frequency.setValueAtTime(satToneHz, atTime);
+  node.saturationTone.Q.setValueAtTime(0.707, atTime);
+  smoothTo(
+    node.saturationOutputGain.gain,
+    Math.pow(10, satOutputDb / 20),
+    atTime,
+  );
+  smoothTo(node.saturationDryGain.gain, 1 - satMix, atTime);
+  smoothTo(node.saturationWetGain.gain, satMix, atTime);
+
+  // ---- filter parameters --------------------------------------------------
+  // A disabled filter goes fully dry (mix 0) so the biquad is out of the
+  // signal path entirely; its stored params stay as-is (inaudible at
+  // mix 0, and they re-apply the moment the filter is re-enabled).
+  const filterMix = filterEnabled
+    ? clamp(filterParams.mix, 0, 1)
+    : 0;
+
+  smoothTo(node.filterInput.gain, 1, atTime);
+  node.filterBiquad.type = sanitizeFilterMode(filterParams.mode);
+  node.filterBiquad.frequency.setValueAtTime(
+    clamp(filterParams.cutoffHz, 20, 20000),
+    atTime,
+  );
+  node.filterBiquad.Q.setValueAtTime(
+    clamp(filterParams.resonance, 0.5, 20),
+    atTime,
+  );
+  smoothTo(node.filterDryGain.gain, 1 - filterMix, atTime);
+  smoothTo(node.filterWetGain.gain, filterMix, atTime);
+
+  // ---- transient parameters -----------------------------------------------
+  // A disabled transient shaper goes fully dry (mix 0) so the worklet is
+  // out of the signal path entirely; its stored params stay as-is
+  // (inaudible at mix 0, and they re-apply the moment the shaper is
+  // re-enabled). When the stage runs the unity-gain fallback node (no
+  // parameters map — the worklet module has not loaded yet), the param
+  // writes are skipped and the mix still blends dry/wet; the fallback
+  // passes signal unchanged, so mix is inaudible until the upgrade path
+  // swaps the real node in.
+  const transientMix = transientEnabled
+    ? clamp(transientParams.mix, 0, 1)
+    : 0;
+
+  smoothTo(node.transientInput.gain, 1, atTime);
+  if (node.transientNode && node.transientNode.parameters) {
+    node.transientNode.parameters
+      .get("attack")
+      .setValueAtTime(clamp(transientParams.attack, -1, 1), atTime);
+    node.transientNode.parameters
+      .get("sustain")
+      .setValueAtTime(clamp(transientParams.sustain, -1, 1), atTime);
+  }
+  smoothTo(node.transientDryGain.gain, 1 - transientMix, atTime);
+  smoothTo(node.transientWetGain.gain, transientMix, atTime);
 
   // ---- reverb parameters --------------------------------------------------
   const reverbSize = reverbEnabled ? clamp(reverbParams.size, 0, 1) : 0.62;
@@ -225,6 +391,55 @@ export function applyInsertSettings(
     });
   }
 
+  // ---- delay parameters ---------------------------------------------------
+  // A disabled delay gates its input and kills its feedback so the loop
+  // stops circulating; the stored time and damping stay as-is (inaudible
+  // at mix 0, and they re-apply the moment the delay is re-enabled).
+  // Feedback is hard-capped below 1 here as well as in the sanitizer —
+  // a runaway loop must be impossible no matter where the value came from.
+  const delayTimeSec = clamp(delayParams.timeMs, 1, 2000) / 1000;
+  const delayFeedbackGain = delayEnabled
+    ? clamp(delayParams.feedback, 0, 0.85)
+    : 0;
+  const delayMix = delayEnabled
+    ? clamp(delayParams.mix, 0, 1)
+    : 0;
+
+  smoothTo(node.delayInput.gain, delayEnabled ? 1 : 0, atTime);
+  node.delayNode.delayTime.setValueAtTime(delayTimeSec, atTime);
+  node.delayDamping.type = "lowpass";
+  node.delayDamping.frequency.setValueAtTime(
+    clamp(delayParams.hiCutHz, 1200, 18000),
+    atTime,
+  );
+  node.delayDamping.Q.setValueAtTime(0.707, atTime);
+  smoothTo(node.delayFeedback.gain, delayFeedbackGain, atTime);
+  smoothTo(node.delayWetGain.gain, delayMix, atTime);
+
+  // ---- chorus parameters --------------------------------------------------
+  // A disabled chorus gates its input and flattens its LFO depth so the
+  // delay time sits still at the base value; the wet gain goes to 0 so
+  // the (still-running) LFO is inaudible until the chorus is re-enabled.
+  const chorusDelaySec = clamp(chorusParams.delayMs, 5, 40) / 1000;
+  const chorusRateHz = clamp(chorusParams.rateHz, 0.1, 8);
+  const chorusDepthSec = chorusEnabled
+    ? getChorusDepthSec(chorusParams.depth)
+    : 0;
+  const chorusMix = chorusEnabled
+    ? clamp(chorusParams.mix, 0, 1)
+    : 0;
+
+  smoothTo(node.chorusInput.gain, chorusEnabled ? 1 : 0, atTime);
+  node.chorusDelay.delayTime.setValueAtTime(chorusDelaySec, atTime);
+  smoothTo(node.chorusWetGain.gain, chorusMix, atTime);
+
+  if (Array.isArray(node.chorusModulators)) {
+    node.chorusModulators.forEach(function (modNode) {
+      modNode.lfo.frequency.setValueAtTime(chorusRateHz, atTime);
+      modNode.depth.gain.setValueAtTime(chorusDepthSec, atTime);
+    });
+  }
+
   // ---- maximizer parameters -----------------------------------------------
   const mode = sanitizeMaximizerMode(maximizerParams.mode);
   const modeConfigById = {
@@ -300,22 +515,27 @@ export function applyInsertSettings(
     0.18,
   );
 
-  smoothTo(
-    node.maximizerInput.gain,
-    maximizerEnabled ? 1 : 0,
-    atTime,
-  );
+  // The maximizer entry always passes (serial chain); a disabled maximizer
+  // goes neutral — unity pre/ceiling gain, no soft clip, and a 1:1
+  // compressor — instead of gating the chain.
+  smoothTo(node.maximizerInput.gain, 1, atTime);
   smoothTo(
     node.maximizerPreGain.gain,
     maximizerEnabled ? Math.pow(10, preGainDb / 20) : 1,
     atTime,
   );
   node.maximizerCompressor.threshold.setValueAtTime(
-    compressorThresholdDb,
+    maximizerEnabled ? compressorThresholdDb : 0,
     atTime,
   );
-  node.maximizerCompressor.ratio.setValueAtTime(ratio, atTime);
-  node.maximizerCompressor.knee.setValueAtTime(kneeDb, atTime);
+  node.maximizerCompressor.ratio.setValueAtTime(
+    maximizerEnabled ? ratio : 1,
+    atTime,
+  );
+  node.maximizerCompressor.knee.setValueAtTime(
+    maximizerEnabled ? kneeDb : 0,
+    atTime,
+  );
   node.maximizerCompressor.attack.setValueAtTime(attackSec, atTime);
   node.maximizerCompressor.release.setValueAtTime(releaseSec, atTime);
   node.maximizerSoftClip.curve =

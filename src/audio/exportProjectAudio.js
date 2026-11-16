@@ -7,6 +7,7 @@ import {
   createMixerInsertNodes,
   startMixerInsertModulators,
 } from "./core/createMixerInsertNodes";
+import { ensureTransientShaperWorklet } from "./core/transientShaperWorklet";
 import { computeSamplePlaybackParams } from "./core/computeSamplePlaybackParams";
 import { createSamplePlaybackNodes } from "./core/createSamplePlaybackNodes";
 import {
@@ -40,8 +41,15 @@ const CUT_ITSELF_RETRIGGER_FADE_IN_SEC = 0.0025;
 import { clamp } from "../store/utils";
 
 // Builds the offline mixer graph once; each scheduled source only plugs into insert inputs.
-function buildInsertInputNodes(audioCtx, mixerInserts) {
+async function buildInsertInputNodes(audioCtx, mixerInserts) {
   const inserts = Array.isArray(mixerInserts) ? mixerInserts : [];
+  // The transient shaper runs in an AudioWorklet, whose module loads
+  // asynchronously. Await it before building the graph so the offline
+  // render uses the real shaper. If the load fails (an
+  // OfflineAudioContext without audioWorklet support), the graph falls
+  // back to unity-gain transient stages and the export renders with
+  // transient shaping bypassed — never a failed export.
+  await ensureTransientShaperWorklet(audioCtx);
   const { insertMap, getOutputNode } = createMixerInsertNodes(
     audioCtx,
     inserts,
@@ -295,7 +303,7 @@ export async function renderPlaylistArrangementToFile(options) {
   const totalFrames = Math.max(1, Math.ceil(durationSeconds * sampleRate));
   const audioCtx = new OfflineAudioContext(2, totalFrames, sampleRate);
 
-  const inserts = buildInsertInputNodes(audioCtx, mixerInserts);
+  const inserts = await buildInsertInputNodes(audioCtx, mixerInserts);
   const channels = Array.isArray(project?.channels) ? project.channels : [];
   const playlistClips = Array.isArray(project?.playlistClips)
     ? project.playlistClips

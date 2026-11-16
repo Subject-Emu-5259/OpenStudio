@@ -32,6 +32,12 @@ export type AiOperationType =
   | "set_fx_reverb_param"
   | "set_fx_maximizer_param"
   | "set_fx_graphic_eq_band_gain"
+  | "set_fx_compressor_param"
+  | "set_fx_saturation_param"
+  | "set_fx_filter_param"
+  | "set_fx_delay_param"
+  | "set_fx_chorus_param"
+  | "set_fx_transient_param"
 
 export interface AiProviderModel {
   value: string

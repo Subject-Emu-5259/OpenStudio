@@ -483,6 +483,7 @@ export function sanitizeLoadedDawState(currentState, rawLoadedState) {
         meterWaveform: makeInsertWaveform(),
         maximizerReduction: 0,
         maximizerOutputDb: -96,
+        compressorReduction: 0,
         maximizerStereoMeter: makeMaximizerStereoMeter(),
         routesTo: ["master"],
         fxSlots: makeFxSlots(),

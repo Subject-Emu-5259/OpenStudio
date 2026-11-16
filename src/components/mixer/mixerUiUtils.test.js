@@ -13,11 +13,17 @@ describe("mixerUiUtils", () => {
       expect(isSupportedEffectType("graphic-eq")).toBe(true);
       expect(isSupportedEffectType("reverb")).toBe(true);
       expect(isSupportedEffectType("maximizer")).toBe(true);
+      expect(isSupportedEffectType("compressor")).toBe(true);
+      expect(isSupportedEffectType("saturation")).toBe(true);
+      expect(isSupportedEffectType("filter")).toBe(true);
+      expect(isSupportedEffectType("delay")).toBe(true);
+      expect(isSupportedEffectType("chorus")).toBe(true);
+      expect(isSupportedEffectType("transient")).toBe(true);
     });
 
     it("returns false for unsupported effects", () => {
       expect(isSupportedEffectType("none")).toBe(false);
-      expect(isSupportedEffectType("delay")).toBe(false);
+      expect(isSupportedEffectType("pitch-shift")).toBe(false);
       expect(isSupportedEffectType("")).toBe(false);
     });
   });
@@ -27,6 +33,12 @@ describe("mixerUiUtils", () => {
       expect(getFxSlotName({ effectType: "graphic-eq" }, 0)).toBe("Graphic EQ");
       expect(getFxSlotName({ effectType: "reverb" }, 0)).toBe("Reverb");
       expect(getFxSlotName({ effectType: "maximizer" }, 0)).toBe("Limiter");
+      expect(getFxSlotName({ effectType: "compressor" }, 0)).toBe("Compressor");
+      expect(getFxSlotName({ effectType: "saturation" }, 0)).toBe("Saturation");
+      expect(getFxSlotName({ effectType: "filter" }, 0)).toBe("Filter");
+      expect(getFxSlotName({ effectType: "delay" }, 0)).toBe("Delay");
+      expect(getFxSlotName({ effectType: "chorus" }, 0)).toBe("Chorus");
+      expect(getFxSlotName({ effectType: "transient" }, 0)).toBe("Transient Shaper");
     });
 
     it("falls back to slot name or index", () => {

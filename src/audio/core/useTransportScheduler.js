@@ -73,6 +73,7 @@ export function useTransportScheduler({
   lastMaximizerReductionRef,
   lastMaximizerOutputDbRef,
   lastMaximizerStereoMeterRef,
+  lastCompressorReductionRef,
   channelsRef,
   activePatternRef,
   patternsRef,
@@ -534,6 +535,7 @@ export function useTransportScheduler({
             lastMaximizerReductionRef,
             lastMaximizerOutputDbRef,
             lastMaximizerStereoMeterRef,
+            lastCompressorReductionRef,
           });
         }
 

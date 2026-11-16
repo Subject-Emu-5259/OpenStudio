@@ -28,6 +28,7 @@ export function useVisualTail() {
       lastMaximizerReductionRef,
       lastMaximizerOutputDbRef,
       lastMaximizerStereoMeterRef,
+      lastCompressorReductionRef,
     } = meterRefs;
 
     const waveformTailDurationMs = 2500;
@@ -52,11 +53,17 @@ export function useVisualTail() {
         reduction: Number(
           lastMaximizerReductionRef.current.get(insertId) || 0,
         ),
+        compressorReduction: Number(
+          lastCompressorReductionRef?.current.get(insertId) || 0,
+        ),
         outDb,
         stereo,
         initialMeter: Number(lastMeterLevelsRef.current.get(insertId) || 0),
         initialReduction: Number(
           lastMaximizerReductionRef.current.get(insertId) || 0,
+        ),
+        initialCompressorReduction: Number(
+          lastCompressorReductionRef?.current.get(insertId) || 0,
         ),
         initialOutDb: outDb,
         initialLeftDb: Number(stereo.leftVolumeDb || -96),
@@ -111,6 +118,7 @@ export function useVisualTail() {
       }
       state.meter = state.initialMeter * fade;
       state.reduction = state.initialReduction * fade;
+      state.compressorReduction = state.initialCompressorReduction * fade;
       state.outDb =
         state.initialOutDb + (-96 - state.initialOutDb) * barProgress;
       state.stereo = {
@@ -133,6 +141,7 @@ export function useVisualTail() {
           maximizerReduction: state.reduction,
           maximizerOutputDb: state.outDb,
           maximizerStereoMeter: state.stereo,
+          compressorReduction: state.compressorReduction,
         }),
       );
     });
